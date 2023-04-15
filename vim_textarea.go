@@ -15,6 +15,13 @@ import (
 	rw "github.com/mattn/go-runewidth"
 )
 
+type TextAreaMode int
+
+const (
+	NormalMode TextAreaMode = iota
+	InsertMode
+)
+
 const (
 	minHeight        = 1
 	minWidth         = 2
@@ -31,6 +38,7 @@ type pasteErrMsg struct{ error }
 
 // KeyMap is the key bindings for different actions within the textarea.
 type KeyMap struct {
+	// Insert mode bindings
 	CharacterBackward       key.Binding
 	CharacterForward        key.Binding
 	DeleteAfterCursor       key.Binding
@@ -216,6 +224,8 @@ type Model struct {
 
 	// rune sanitizer for input.
 	rsan runeutil.Sanitizer
+
+	mode TextAreaMode
 }
 
 // New creates a new model with default settings.
@@ -244,6 +254,8 @@ func New() Model {
 		lineNumberFormat: "%2v ",
 
 		viewport: &vp,
+
+		mode: NormalMode,
 	}
 
 	m.SetHeight(defaultHeight)

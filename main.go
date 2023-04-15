@@ -7,9 +7,11 @@ import (
 )
 
 func main() {
+	area := New()
+	area.Focus()
 
 	model := appModel{
-		text: "Hello world!",
+		textarea: area,
 	}
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
