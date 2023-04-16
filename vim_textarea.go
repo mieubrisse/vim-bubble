@@ -8,8 +8,12 @@ import (
 type VimTextAreaMode string
 
 const (
-	NormalMode VimTextAreaMode = "NORMAL"
-	InsertMode VimTextAreaMode = "INSERT"
+	NormalMode VimTextAreaMode = ""
+	InsertMode VimTextAreaMode = "-- INSERT --"
+)
+
+const (
+	shouldBindToLineWhenMovingRight = true
 )
 
 // Rename?
@@ -29,10 +33,14 @@ type VimTextAreaModel struct {
 
 // TODO rename
 func NewVimTextArea() VimTextAreaModel {
+	area := New()
+	// TODO remove this
+	area.SetValue("foo bar bang\n\nthis is a thing")
+	// area.CursorEnd() // This is a bit of a hack; SetValue should really do this right
 	return VimTextAreaModel{
 		mode:      NormalMode,
 		isFocused: false,
-		area:      New(),
+		area:      area,
 	}
 }
 
@@ -50,6 +58,7 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 		case InsertMode:
 			if msg.String() == "esc" {
 				model.mode = NormalMode
+				// TODO if the cursor is off the end of the line, move it back
 				break
 			}
 
@@ -65,7 +74,7 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			case "k":
 				model.area.CursorUp()
 			case "l":
-				model.area.CharacterRight()
+				model.area.CharacterRight(shouldBindToLineWhenMovingRight)
 			case "b":
 				model.area.WordLeft()
 			case "w":

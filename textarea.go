@@ -500,8 +500,13 @@ func (m *Model) CursorStart() {
 }
 
 // CursorEnd moves the cursor to the end of the input field.
-func (m *Model) CursorEnd() {
-	m.SetCursor(len(m.value[m.row]))
+// If bindToLine is set, only allow going to the last char of the line
+func (m *Model) CursorEnd(bindToLine bool) {
+	newPosition := len(m.value[m.row])
+	if bindToLine {
+		newPosition--
+	}
+	m.SetCursor(newPosition)
 }
 
 // Focused returns the focus state on the model.
@@ -652,15 +657,21 @@ func (m *Model) deleteWordRight() {
 }
 
 // CharacterRight moves the cursor one character to the right.
-func (m *Model) CharacterRight() {
-	if m.col < len(m.value[m.row]) {
+// If bindToLine is set, the cursor will not move psat the last character of the line
+func (m *Model) CharacterRight(bindToLine bool) {
+	moveRightLimit := len(m.value[m.row])
+	if bindToLine {
+		moveRightLimit--
+	}
+	if m.col < moveRightLimit {
 		m.SetCursor(m.col + 1)
-	} else {
+	} /* else {
 		if m.row < len(m.value)-1 {
 			m.row++
 			m.CursorStart()
 		}
 	}
+	*/
 }
 
 // CharacterLeft moves the cursor one character to the left.
@@ -686,60 +697,63 @@ func (m *Model) CharacterLeft(insideLine bool) {
 // cursor blink should be reset. If input is masked, move input to the start
 // so as not to reveal word breaks in the masked input.
 func (m *Model) WordLeft() {
-
-	haveEncounteredWhitespace := false
+	haveEncounteredSpace := false
 	for {
-		// If we're at the last char of the line (which may be empty)...
-		if m.col >= len(m.value[m.row])-1 {
-			// ...and there are no more lines, we're done
-			if m.row == len(m.value)-1 {
+		// If we're at the first char of the line (which may be empty)...
+		if m.col == 0 {
+			// ...and there are no more lines before, we're done
+			if m.row == 0 {
 				return
 			}
 
-			// ...and the next line is empty, then move to the next line and we're done
+			// ...and the previous line is empty, then move to the previous line and we're done
 			// This is a bit odd, but it's Vim behaviour
-			if len(m.value[m.row+1]) == 0 {
-				// Copied from CharacterRight
-				m.CursorStart()
-				m.row++
+			if len(m.value[m.row-1]) == 0 {
+				// Copied from CharacterLeft
+				m.CursorEnd(true) // This bindToLine doesn't really matter in this case because we know the line is empty
+				m.row--
 				return
 			}
 
-			// ...and the next line is not empty, prep to stop on the next word
-			m.row++
-			m.CursorStart()
-			haveEncounteredWhitespace = true
+			// ...and the next line is not empty, move to the end of the previous word
+			m.row--
+			m.CursorEnd(true) // We pass 'true' becuase we don't want to be beyond the last char of the previous line
+			haveEncounteredSpace = true
 			continue
 		}
 
 		charUnderCursor := m.value[m.row][m.col]
 
-		// We've already left a word and found another; we're done
-		if haveEncounteredWhitespace && !unicode.IsSpace(charUnderCursor) {
+		charBeforeCursor := m.value[m.row][m.col-1]
+
+		// We're at the start of a word
+		if haveEncounteredSpace && unicode.IsSpace(charBeforeCursor) {
 			return
 		}
 
 		// We've seen a space, so we're ready to stop
 		if unicode.IsSpace(charUnderCursor) {
-			haveEncounteredWhitespace = true
+			haveEncounteredSpace = true
 		}
 
-		m.CharacterRight()
+		m.CharacterLeft(true)
 	}
 
-	for {
-		m.CharacterLeft(true /* insideLine */)
-		if m.col < len(m.value[m.row]) && !unicode.IsSpace(m.value[m.row][m.col]) {
-			break
+	/*
+		for {
+			m.CharacterLeft(true)
+			if m.col < len(m.value[m.row]) && !unicode.IsSpace(m.value[m.row][m.col]) {
+				break
+			}
 		}
-	}
 
-	for m.col > 0 {
-		if unicode.IsSpace(m.value[m.row][m.col-1]) {
-			break
+		for m.col > 0 {
+			if unicode.IsSpace(m.value[m.row][m.col-1]) {
+				break
+			}
+			m.SetCursor(m.col - 1)
 		}
-		m.SetCursor(m.col - 1)
-	}
+	*/
 }
 
 // WordRight moves the cursor one word to the right. Returns whether or not the
@@ -752,7 +766,7 @@ func (m *Model) WordRight() {
 func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
 	haveEncounteredWhitespace := false
 	for {
-		// If we're at the last char of the line (which may be empty)...
+		// If we're at (or beyond) the last char of the line (which may be empty)...
 		if m.col >= len(m.value[m.row])-1 {
 			// ...and there are no more lines, we're done
 			if m.row == len(m.value)-1 {
@@ -787,7 +801,8 @@ func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
 			haveEncounteredWhitespace = true
 		}
 
-		m.CharacterRight()
+		// We don't want the cursor to move off the end of everything
+		m.CharacterRight(true)
 	}
 
 	/*
@@ -1024,11 +1039,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			m.splitLine(m.row, m.col)
 		case key.Matches(msg, m.KeyMap.LineEnd):
-			m.CursorEnd()
+			// If the user is going to the end of the line, do allow them to go off the end of the line
+			m.CursorEnd(false)
 		case key.Matches(msg, m.KeyMap.LineStart):
 			m.CursorStart()
 		case key.Matches(msg, m.KeyMap.CharacterForward):
-			m.CharacterRight()
+			// When we're editing normally, we DO want to allow moving off the end of the line
+			m.CharacterRight(false)
 		case key.Matches(msg, m.KeyMap.LineNext):
 			m.CursorDown()
 		case key.Matches(msg, m.KeyMap.WordForward):
