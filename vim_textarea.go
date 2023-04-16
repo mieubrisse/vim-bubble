@@ -105,6 +105,14 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				model.area.DeleteAfterCursor()
 				model.area.CharacterRight(false)
 				model.mode = InsertMode
+			case "o":
+				model.area.InsertLineBelow()
+				model.area.CursorDown(true)
+				model.mode = InsertMode
+			case "O":
+				model.area.InsertLineAbove()
+				model.area.CursorUp(true)
+				model.mode = InsertMode
 			}
 		}
 	}

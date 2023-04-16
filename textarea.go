@@ -407,6 +407,36 @@ func (m *Model) WordStartRight() {
 	m.doWordwiseMovement(true, true)
 }
 
+func (m *Model) InsertLineAbove() {
+	newValue := make([][]rune, 0, len(m.value)+1)
+
+	preCursorLines := m.value[0:m.row]
+	newValue = append(newValue, preCursorLines...)
+
+	newValue = append(newValue, make([]rune, 0))
+
+	cursorLineAndAfter := m.value[m.row:]
+	newValue = append(newValue, cursorLineAndAfter...)
+
+	m.row++
+	m.value = newValue
+}
+
+func (m *Model) InsertLineBelow() {
+	// TODO maybe a 'max' of the capacity?
+	newValue := make([][]rune, 0, len(m.value)+1)
+
+	cursorLineAndPrevious := m.value[0 : m.row+1]
+	newValue = append(newValue, cursorLineAndPrevious...)
+
+	newValue = append(newValue, make([]rune, 0))
+
+	postCursorLines := m.value[m.row+1:]
+	newValue = append(newValue, postCursorLines...)
+
+	m.value = newValue
+}
+
 // LineInfo returns the number of characters from the start of the
 // (soft-wrapped) line and the (soft-wrapped) line width.
 func (m Model) LineInfo() LineInfo {
