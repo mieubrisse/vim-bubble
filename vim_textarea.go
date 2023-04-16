@@ -74,7 +74,7 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			case "h":
 				model.area.CharacterLeft(true)
 			case "j":
-				model.area.CursorDown()
+				model.area.CursorDown(true)
 			case "k":
 				model.area.CursorUp()
 			case "l":

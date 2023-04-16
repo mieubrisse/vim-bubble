@@ -443,7 +443,8 @@ func (m *Model) CursorDown(bindToLine bool) {
 
 	offset := 0
 	for offset < charOffset {
-		if m.col > len(m.value[m.row]) || offset >= nli.CharWidth-1 {
+		// TODO TESTING
+		if m.col >= len(m.value[m.row]) || offset >= nli.CharWidth-1 {
 			break
 		}
 		offset += rw.RuneWidth(m.value[m.row][m.col])
@@ -452,7 +453,8 @@ func (m *Model) CursorDown(bindToLine bool) {
 }
 
 // CursorUp moves the cursor up by one line.
-func (m *Model) CursorUp() {
+// If bindToLine is set, the cursor will not move past the last character of the line
+func (m *Model) CursorUp(bindToLine bool) {
 	li := m.LineInfo()
 	charOffset := max(m.lastCharOffset, li.CharOffset)
 	m.lastCharOffset = charOffset
@@ -860,7 +862,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			// When we're editing normally, we DO want to allow moving off the end of the line
 			m.CharacterRight(false)
 		case key.Matches(msg, m.KeyMap.LineNext):
-			m.CursorDown()
+			// If the user is using the arrow keys, we don't want to be binding to the end of the line because they're
+			// almost definitely in insert mode
+			m.CursorDown(false)
 		case key.Matches(msg, m.KeyMap.WordForward):
 			m.WordRight()
 		case key.Matches(msg, m.KeyMap.Paste):
