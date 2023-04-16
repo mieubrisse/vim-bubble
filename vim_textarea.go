@@ -90,6 +90,8 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				model.area.WordStartLeft()
 			case "w":
 				model.area.WordStartRight()
+			case "e":
+				model.area.WordEndRight()
 			case "i":
 				model.mode = InsertMode
 				break

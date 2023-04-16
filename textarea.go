@@ -393,96 +393,18 @@ func (m *Model) CharacterLeft(insideLine bool) {
 // cursor blink should be reset. If input is masked, move input to the start
 // so as not to reveal word breaks in the masked input.
 func (m *Model) WordStartLeft() {
-	// In order to do word-left, we need to a) cross a word boundary (whitespace) and
-	haveCrossedWordBoundary := false
-	if m.row == 0 && m.col == 0 {
-		// Special case to handle empty input and being at the beginning
-		haveCrossedWordBoundary = true
-	} else if m.row >= len(m.value)-1 && m.col >= len(m.value[m.row])-1 {
-		// This is a special case - if we're at the end of the input, we'll consider ourselves to already have
-		// crossed a word boundary so that we can jump from end-of-input to the start of the last word
-		haveCrossedWordBoundary = true
-	}
-
-	for {
-		// Stop condition: we're at a word start, having already crossed a word boundary
-		isCursorAtWordStart := m.col == 0 || (!unicode.IsSpace(m.value[m.row][m.col]) && unicode.IsSpace(m.value[m.row][m.col-1]))
-		if haveCrossedWordBoundary && isCursorAtWordStart {
-			return
-		}
-
-		// We're not done, so we have to scroll
-		if m.col == 0 {
-			haveCrossedWordBoundary = true
-			m.row--
-			m.CursorEnd(true)
-			continue
-		}
-
-		if unicode.IsSpace(m.value[m.row][m.col]) {
-			haveCrossedWordBoundary = true
-		}
-
-		m.CharacterLeft(true)
-	}
-
-	/*
-		for {
-			m.CharacterLeft(true)
-			if m.col < len(m.value[m.row]) && !unicode.IsSpace(m.value[m.row][m.col]) {
-				break
-			}
-		}
-
-		for m.col > 0 {
-			if unicode.IsSpace(m.value[m.row][m.col-1]) {
-				break
-			}
-			m.SetCursor(m.col - 1)
-		}
-	*/
+	m.doWordwiseMovement(false, false)
 }
 
 func (m *Model) WordEndRight() {
-	// In order to do word-left, we need to a) cross a word boundary (whitespace) and
-	haveCrossedWordBoundary := false
-	if m.row == 0 && m.col == 0 {
-		// Special case to handle empty input and being at the beginning
-		haveCrossedWordBoundary = true
-	} else if m.row >= len(m.value)-1 && m.col >= len(m.value[m.row])-1 {
-		// This is a special case - if we're at the end of the input, we'll consider ourselves to already have
-		// crossed a word boundary so that we can jump from end-of-input to the start of the last word
-		haveCrossedWordBoundary = true
-	}
-
-	for {
-		// Stop condition: we're at a word start, having already crossed a word boundary
-		isCursorAtWordEnd := m.col >= len(m.value[m.row])-1 || (!unicode.IsSpace(m.value[m.row][m.col]) && unicode.IsSpace(m.value[m.row][m.col+1]))
-		if haveCrossedWordBoundary && isCursorAtWordEnd {
-			return
-		}
-
-		// We're not done, so we have to scroll
-		if m.col == 0 {
-			haveCrossedWordBoundary = true
-			m.row--
-			m.CursorEnd(true)
-			continue
-		}
-
-		if unicode.IsSpace(m.value[m.row][m.col]) {
-			haveCrossedWordBoundary = true
-		}
-
-		m.CharacterLeft(true)
-	}
+	m.doWordwiseMovement(true, false)
 }
 
 // WordStartRight moves the cursor one word to the right. Returns whether or not the
 // cursor blink should be reset. If the input is masked, move input to the end
 // so as not to reveal word breaks in the masked input.
 func (m *Model) WordStartRight() {
-	m.doWordRight(func(int, int) { /* nothing */ })
+	m.doWordwiseMovement(true, true)
 }
 
 // LineInfo returns the number of characters from the start of the
@@ -830,7 +752,7 @@ direction of algorithm travel. This means:
 - when moving right, the algorithm will leave the cursor at the end of the word
 - when moving left, the algorithm will leave the cursor at the start of the word
 */
-func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
+func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 	// This function utilizes the insight that the textarea string can be thought of as a "tape" of words, joined by whitespace
 	// With this insight, we can handle both (left,right) and (word_start,word_end) by simply sliding along the tape in
 	// the appropriate direction looking for the sequence we want
@@ -840,12 +762,16 @@ func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		return
 	}
 
+	// Factor applied to index calculations to account for the desired direction of cursor travel
 	directionMultiplier := 1
 	if !isMovingRight {
 		directionMultiplier = -1
 	}
 
-	// Will be used later
+	// Factor applied to index calculations to account for eagerness, where eagerness means "look at the
+	// character BEFORE the cursor to figure out if you should stop" and non-eager means "look at the character
+	// AFTER the cursor to figure out if you should stop" (where "before" and "after" are measured by direction of
+	// cursor travel)
 	eagerMultiplier := -1
 	if !shouldEagerStop {
 		eagerMultiplier = 1
@@ -861,11 +787,11 @@ func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 	sanitizedColIdx := min(m.col, len(m.value[m.row])-1)
 
 	// To start the algo off, shove the cursor column one character in the direction of travel
-	// This prevents doing nothing if you're already at a word start/end
+	// This prevents this being a noop if you're already at a word start/end
 	nextColIdx := sanitizedColIdx + directionMultiplier
 	for {
 		// The proposed column might be off either end of the line, so let's first calculate the boundary beyond
-		// which we know that the proposed column is off the edge fo the line
+		// which we know that the proposed column is off the edge of the line
 		limitColIndex := len(m.value[m.row]) - 1
 		if !isMovingRight {
 			limitColIndex = 0
@@ -876,7 +802,7 @@ func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		if remainingColsBeforeLimit < 0 {
 			// We're off the end; can we go to another line to keep going?
 			nextRowIdx := m.row + directionMultiplier
-			remainingRowsBeforeLimit := directionMultiplier * (nextRowIdx - limitRowIndex)
+			remainingRowsBeforeLimit := directionMultiplier * (limitRowIndex - nextRowIdx)
 			if remainingRowsBeforeLimit < 0 {
 				// We're at the end of the "tape"; nothing to do
 				return
@@ -892,8 +818,16 @@ func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 			}
 		}
 
-		// Now that we know we're moving the column index to a valid spot, move it
-		m.col = nextColIdx
+		// Now that we know we're moving the column index to a valid line, move it
+		m.SetCursor(nextColIdx)
+		nextColIdx = m.col + directionMultiplier // Prep for next iteration
+
+		// We still might have moved the cursor to an empty line, making the cursor location invalid!
+		// Vim will stop on these empty lines, so we try to as well
+		if len(m.value[m.row]) == 0 {
+			return
+		}
+
 		cursorChar := m.value[m.row][m.col]
 
 		// Grab a comparison column which must be whitespace to stop the algorithm
@@ -902,16 +836,21 @@ func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		// in the direction of algorithm travel
 		cursorAdjacentColIdx := m.col + eagerMultiplier*directionMultiplier
 
-		// If the cursor adjacent col idx is beyond the limit, it's automatically treated as whitespace
-		// Recalculate the limitColIdx (since our cursor might have changed rows)
-		limitColIndex = len(m.value[m.row]) - 1
-		if !isMovingRight {
-			limitColIndex = 0
+		// Depending on eagerness, the adjacent col might actually be *behind* the cursor, meaning we need to use the opposite boundary
+		// as the direction of algo travel along the "tape"
+		// This happens if we're moving right but we're eagerly stopping, OR if we're moving left and non-eagerly stopping
+		// NOTE: This is actually an XOR between moveRight and eagerStop
+		var adjacentColLimitIndex int
+		if (isMovingRight && !shouldEagerStop) || (!isMovingRight && shouldEagerStop) {
+			// The adjacent col limit index will be the list's right limit
+			adjacentColLimitIndex = len(m.value[m.row]) - 1
+		} else {
+			adjacentColLimitIndex = 0
 		}
 
 		// Now grab a character that may or may not be whitespace
 		// If the col we're grabbing is off the end of the line, it's automatically a newline
-		remainingColsBeforeCursorAdjacentColIsOff := directionMultiplier * (limitColIndex - cursorAdjacentColIdx)
+		remainingColsBeforeCursorAdjacentColIsOff := eagerMultiplier * directionMultiplier * (adjacentColLimitIndex - cursorAdjacentColIdx)
 		var candidateWhitespaceChar rune
 		if remainingColsBeforeCursorAdjacentColIsOff < 0 {
 			candidateWhitespaceChar = '\n'
@@ -925,7 +864,6 @@ func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		}
 
 		// We're not done, so prep for next iteration
-		nextColIdx = m.col + directionMultiplier
 	}
 }
 
