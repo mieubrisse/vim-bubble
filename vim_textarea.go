@@ -36,7 +36,7 @@ func NewVimTextArea() VimTextAreaModel {
 	area := New()
 	// TODO remove this
 	area.SetValue("foo bar bang\n\nthis is a thing")
-	// area.CursorEnd() // This is a bit of a hack; SetValue should really do this right
+	area.CursorEnd(true) // This is a bit of a hack; SetValue should really do this right
 	return VimTextAreaModel{
 		mode:      NormalMode,
 		isFocused: false,
@@ -58,6 +58,7 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 		case InsertMode:
 			if msg.String() == "esc" {
 				model.mode = NormalMode
+				model.area.CharacterLeft(true)
 				// TODO if the cursor is off the end of the line, move it back
 				break
 			}
@@ -67,6 +68,9 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			resultCmds = append(resultCmds, cmd)
 		case NormalMode:
 			switch msg.String() {
+			case "a":
+				model.area.CharacterRight(false)
+				model.mode = InsertMode
 			case "h":
 				model.area.CharacterLeft(true)
 			case "j":
@@ -82,6 +86,10 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			case "i":
 				model.mode = InsertMode
 				break
+			case "^":
+				model.area.CursorStart()
+			case "$":
+				model.area.CursorEnd(true)
 			}
 		}
 	}

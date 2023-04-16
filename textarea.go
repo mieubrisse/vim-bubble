@@ -130,6 +130,33 @@ type Style struct {
 	Text             lipgloss.Style
 }
 
+// DefaultStyles returns the default styles for focused and blurred states for
+// the textarea.
+func DefaultStyles() (Style, Style) {
+	focused := Style{
+		Base:             lipgloss.NewStyle(),
+		CursorLine:       lipgloss.NewStyle().Background(lipgloss.AdaptiveColor{Light: "255", Dark: "0"}),
+		CursorLineNumber: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240"}),
+		EndOfBuffer:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "254", Dark: "0"}),
+		LineNumber:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
+		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
+		Text:             lipgloss.NewStyle(),
+	}
+	blurred := Style{
+		Base:             lipgloss.NewStyle(),
+		CursorLine:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
+		CursorLineNumber: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
+		EndOfBuffer:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "254", Dark: "0"}),
+		LineNumber:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
+		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
+		Text:             lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
+	}
+
+	return focused, blurred
+}
+
 // Model is the Bubble Tea model for this text area element.
 type Model struct {
 	Err error
@@ -251,33 +278,6 @@ func New() Model {
 	m.SetWidth(defaultWidth)
 
 	return m
-}
-
-// DefaultStyles returns the default styles for focused and blurred states for
-// the textarea.
-func DefaultStyles() (Style, Style) {
-	focused := Style{
-		Base:             lipgloss.NewStyle(),
-		CursorLine:       lipgloss.NewStyle().Background(lipgloss.AdaptiveColor{Light: "255", Dark: "0"}),
-		CursorLineNumber: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240"}),
-		EndOfBuffer:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "254", Dark: "0"}),
-		LineNumber:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
-		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
-		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
-		Text:             lipgloss.NewStyle(),
-	}
-	blurred := Style{
-		Base:             lipgloss.NewStyle(),
-		CursorLine:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
-		CursorLineNumber: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
-		EndOfBuffer:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "254", Dark: "0"}),
-		LineNumber:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
-		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
-		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
-		Text:             lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
-	}
-
-	return focused, blurred
 }
 
 // SetValue sets the value of the text input.
@@ -419,7 +419,7 @@ func (m Model) Line() int {
 
 // CursorDown moves the cursor down by one line.
 // Returns whether or not the cursor blink should be reset.
-func (m *Model) CursorDown() {
+func (m *Model) CursorDown(bindToLine bool) {
 	li := m.LineInfo()
 	charOffset := max(m.lastCharOffset, li.CharOffset)
 	m.lastCharOffset = charOffset
@@ -582,80 +582,6 @@ func (m *Model) transposeLeft() {
 	}
 }
 
-// deleteWordLeft deletes the word left to the cursor. Returns whether or not
-// the cursor blink should be reset.
-func (m *Model) deleteWordLeft() {
-	if m.col == 0 || len(m.value[m.row]) == 0 {
-		return
-	}
-
-	// Linter note: it's critical that we acquire the initial cursor position
-	// here prior to altering it via SetCursor() below. As such, moving this
-	// call into the corresponding if clause does not apply here.
-	oldCol := m.col //nolint:ifshort
-
-	m.SetCursor(m.col - 1)
-	for unicode.IsSpace(m.value[m.row][m.col]) {
-		if m.col <= 0 {
-			break
-		}
-		// ignore series of whitespace before cursor
-		m.SetCursor(m.col - 1)
-	}
-
-	for m.col > 0 {
-		if !unicode.IsSpace(m.value[m.row][m.col]) {
-			m.SetCursor(m.col - 1)
-		} else {
-			if m.col > 0 {
-				// keep the previous space
-				m.SetCursor(m.col + 1)
-			}
-			break
-		}
-	}
-
-	if oldCol > len(m.value[m.row]) {
-		m.value[m.row] = m.value[m.row][:m.col]
-	} else {
-		m.value[m.row] = append(m.value[m.row][:m.col], m.value[m.row][oldCol:]...)
-	}
-}
-
-// deleteWordRight deletes the word right to the cursor.
-func (m *Model) deleteWordRight() {
-	if m.col >= len(m.value[m.row]) || len(m.value[m.row]) == 0 {
-		return
-	}
-
-	oldCol := m.col
-	m.SetCursor(m.col + 1)
-	for unicode.IsSpace(m.value[m.row][m.col]) {
-		// ignore series of whitespace after cursor
-		m.SetCursor(m.col + 1)
-
-		if m.col >= len(m.value[m.row]) {
-			break
-		}
-	}
-
-	for m.col < len(m.value[m.row]) {
-		if !unicode.IsSpace(m.value[m.row][m.col]) {
-			m.SetCursor(m.col + 1)
-		} else {
-			break
-		}
-	}
-
-	if m.col > len(m.value[m.row]) {
-		m.value[m.row] = m.value[m.row][:oldCol]
-	} else {
-		m.value[m.row] = append(m.value[m.row][:oldCol], m.value[m.row][m.col:]...)
-	}
-
-	m.SetCursor(oldCol)
-}
-
 // CharacterRight moves the cursor one character to the right.
 // If bindToLine is set, the cursor will not move psat the last character of the line
 func (m *Model) CharacterRight(bindToLine bool) {
@@ -697,43 +623,34 @@ func (m *Model) CharacterLeft(insideLine bool) {
 // cursor blink should be reset. If input is masked, move input to the start
 // so as not to reveal word breaks in the masked input.
 func (m *Model) WordLeft() {
-	haveEncounteredSpace := false
+	// In order to do word-left, we need to a) cross a word boundary (whitespace) and
+	haveCrossedWordBoundary := false
+	if m.row == 0 && m.col == 0 {
+		// Special case to handle empty input and being at the beginning
+		haveCrossedWordBoundary = true
+	} else if m.row >= len(m.value)-1 && m.col >= len(m.value[m.row])-1 {
+		// This is a special case - if we're at the end of the input, we'll consider ourselves to already have
+		// crossed a word boundary so that we can jump from end-of-input to the start of the last word
+		haveCrossedWordBoundary = true
+	}
+
 	for {
-		// If we're at the first char of the line (which may be empty)...
-		if m.col == 0 {
-			// ...and there are no more lines before, we're done
-			if m.row == 0 {
-				return
-			}
-
-			// ...and the previous line is empty, then move to the previous line and we're done
-			// This is a bit odd, but it's Vim behaviour
-			if len(m.value[m.row-1]) == 0 {
-				// Copied from CharacterLeft
-				m.CursorEnd(true) // This bindToLine doesn't really matter in this case because we know the line is empty
-				m.row--
-				return
-			}
-
-			// ...and the next line is not empty, move to the end of the previous word
-			m.row--
-			m.CursorEnd(true) // We pass 'true' becuase we don't want to be beyond the last char of the previous line
-			haveEncounteredSpace = true
-			continue
-		}
-
-		charUnderCursor := m.value[m.row][m.col]
-
-		charBeforeCursor := m.value[m.row][m.col-1]
-
-		// We're at the start of a word
-		if haveEncounteredSpace && unicode.IsSpace(charBeforeCursor) {
+		// Stop condition: we're at a word start, having already crossed a word boundary
+		isCursorAtWordStart := m.col == 0 || (!unicode.IsSpace(m.value[m.row][m.col]) && unicode.IsSpace(m.value[m.row][m.col-1]))
+		if haveCrossedWordBoundary && isCursorAtWordStart {
 			return
 		}
 
-		// We've seen a space, so we're ready to stop
-		if unicode.IsSpace(charUnderCursor) {
-			haveEncounteredSpace = true
+		// We're not done, so we have to scroll
+		if m.col == 0 {
+			haveCrossedWordBoundary = true
+			m.row--
+			m.CursorEnd(true)
+			continue
+		}
+
+		if unicode.IsSpace(m.value[m.row][m.col]) {
+			haveCrossedWordBoundary = true
 		}
 
 		m.CharacterLeft(true)
@@ -761,85 +678,6 @@ func (m *Model) WordLeft() {
 // so as not to reveal word breaks in the masked input.
 func (m *Model) WordRight() {
 	m.doWordRight(func(int, int) { /* nothing */ })
-}
-
-func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
-	haveEncounteredWhitespace := false
-	for {
-		// If we're at (or beyond) the last char of the line (which may be empty)...
-		if m.col >= len(m.value[m.row])-1 {
-			// ...and there are no more lines, we're done
-			if m.row == len(m.value)-1 {
-				return
-			}
-
-			// ...and the next line is empty, then move to the next line and we're done
-			// This is a bit odd, but it's Vim behaviour
-			if len(m.value[m.row+1]) == 0 {
-				// Copied from CharacterRight
-				m.CursorStart()
-				m.row++
-				return
-			}
-
-			// ...and the next line is not empty, prep to stop on the next word
-			m.row++
-			m.CursorStart()
-			haveEncounteredWhitespace = true
-			continue
-		}
-
-		charUnderCursor := m.value[m.row][m.col]
-
-		// We've already left a word and found another; we're done
-		if haveEncounteredWhitespace && !unicode.IsSpace(charUnderCursor) {
-			return
-		}
-
-		// We've seen a space, so we're ready to stop
-		if unicode.IsSpace(charUnderCursor) {
-			haveEncounteredWhitespace = true
-		}
-
-		// We don't want the cursor to move off the end of everything
-		m.CharacterRight(true)
-	}
-
-	/*
-		charIdx := 0
-		for m.col < len(m.value[m.row]) {
-			if unicode.IsSpace(m.value[m.row][m.col]) {
-				break
-			}
-			fn(charIdx, m.col)
-			m.SetCursor(m.col + 1)
-			charIdx++
-		}
-
-	*/
-}
-
-// uppercaseRight changes the word to the right to uppercase.
-func (m *Model) uppercaseRight() {
-	m.doWordRight(func(_ int, i int) {
-		m.value[m.row][i] = unicode.ToUpper(m.value[m.row][i])
-	})
-}
-
-// lowercaseRight changes the word to the right to lowercase.
-func (m *Model) lowercaseRight() {
-	m.doWordRight(func(_ int, i int) {
-		m.value[m.row][i] = unicode.ToLower(m.value[m.row][i])
-	})
-}
-
-// capitalizeRight changes the word to the right to title case.
-func (m *Model) capitalizeRight() {
-	m.doWordRight(func(charIdx int, i int) {
-		if charIdx == 0 {
-			m.value[m.row][i] = unicode.ToTitle(m.value[m.row][i])
-		}
-	})
 }
 
 // LineInfo returns the number of characters from the start of the
@@ -883,36 +721,6 @@ func (m Model) LineInfo() LineInfo {
 	return LineInfo{}
 }
 
-// repositionView repositions the view of the viewport based on the defined
-// scrolling behavior.
-func (m *Model) repositionView() {
-	min := m.viewport.YOffset
-	max := min + m.viewport.Height - 1
-
-	if row := m.cursorLineNumber(); row < min {
-		m.viewport.LineUp(min - row)
-	} else if row > max {
-		m.viewport.LineDown(row - max)
-	}
-}
-
-// Width returns the width of the textarea.
-func (m Model) Width() int {
-	return m.width
-}
-
-// moveToBegin moves the cursor to the beginning of the input.
-func (m *Model) moveToBegin() {
-	m.row = 0
-	m.SetCursor(0)
-}
-
-// moveToEnd moves the cursor to the end of the input.
-func (m *Model) moveToEnd() {
-	m.row = len(m.value) - 1
-	m.SetCursor(len(m.value[m.row]))
-}
-
 // SetWidth sets the width of the textarea to fit exactly within the given width.
 // This means that the textarea will account for the width of the prompt and
 // whether or not line numbers are being shown.
@@ -939,6 +747,11 @@ func (m *Model) SetWidth(w int) {
 
 	inputWidth -= m.promptWidth
 	m.width = clamp(inputWidth, minWidth, maxWidth)
+}
+
+// Width returns the width of the textarea.
+func (m Model) Width() int {
+	return m.width
 }
 
 // SetPromptFunc supersedes the Prompt field and sets a dynamic prompt
@@ -1191,6 +1004,197 @@ func (m Model) View() string {
 	return m.style.Base.Render(m.viewport.View())
 }
 
+// Paste is a command for pasting from the clipboard into the text input.
+func Paste() tea.Msg {
+	str, err := clipboard.ReadAll()
+	if err != nil {
+		return pasteErrMsg{err}
+	}
+	return pasteMsg(str)
+}
+
+// ====================================================================================================
+//                                   Private Helper Functions
+// ====================================================================================================
+
+// deleteWordLeft deletes the word left to the cursor. Returns whether or not
+// the cursor blink should be reset.
+func (m *Model) deleteWordLeft() {
+	if m.col == 0 || len(m.value[m.row]) == 0 {
+		return
+	}
+
+	// Linter note: it's critical that we acquire the initial cursor position
+	// here prior to altering it via SetCursor() below. As such, moving this
+	// call into the corresponding if clause does not apply here.
+	oldCol := m.col //nolint:ifshort
+
+	m.SetCursor(m.col - 1)
+	for unicode.IsSpace(m.value[m.row][m.col]) {
+		if m.col <= 0 {
+			break
+		}
+		// ignore series of whitespace before cursor
+		m.SetCursor(m.col - 1)
+	}
+
+	for m.col > 0 {
+		if !unicode.IsSpace(m.value[m.row][m.col]) {
+			m.SetCursor(m.col - 1)
+		} else {
+			if m.col > 0 {
+				// keep the previous space
+				m.SetCursor(m.col + 1)
+			}
+			break
+		}
+	}
+
+	if oldCol > len(m.value[m.row]) {
+		m.value[m.row] = m.value[m.row][:m.col]
+	} else {
+		m.value[m.row] = append(m.value[m.row][:m.col], m.value[m.row][oldCol:]...)
+	}
+}
+
+// deleteWordRight deletes the word right to the cursor.
+func (m *Model) deleteWordRight() {
+	if m.col >= len(m.value[m.row]) || len(m.value[m.row]) == 0 {
+		return
+	}
+
+	oldCol := m.col
+	m.SetCursor(m.col + 1)
+	for unicode.IsSpace(m.value[m.row][m.col]) {
+		// ignore series of whitespace after cursor
+		m.SetCursor(m.col + 1)
+
+		if m.col >= len(m.value[m.row]) {
+			break
+		}
+	}
+
+	for m.col < len(m.value[m.row]) {
+		if !unicode.IsSpace(m.value[m.row][m.col]) {
+			m.SetCursor(m.col + 1)
+		} else {
+			break
+		}
+	}
+
+	if m.col > len(m.value[m.row]) {
+		m.value[m.row] = m.value[m.row][:oldCol]
+	} else {
+		m.value[m.row] = append(m.value[m.row][:oldCol], m.value[m.row][m.col:]...)
+	}
+
+	m.SetCursor(oldCol)
+}
+
+func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
+	haveEncounteredWhitespace := false
+	for {
+		// If we're at (or beyond) the last char of the line (which may be empty)...
+		if m.col >= len(m.value[m.row])-1 {
+			// ...and there are no more lines, we're done
+			if m.row == len(m.value)-1 {
+				return
+			}
+
+			// ...and the next line is empty, then move to the next line and we're done
+			// This is a bit odd, but it's Vim behaviour
+			if len(m.value[m.row+1]) == 0 {
+				// Copied from CharacterRight
+				m.CursorStart()
+				m.row++
+				return
+			}
+
+			// ...and the next line is not empty, prep to stop on the next word
+			m.row++
+			m.CursorStart()
+			haveEncounteredWhitespace = true
+			continue
+		}
+
+		charUnderCursor := m.value[m.row][m.col]
+
+		// We've already left a word and found another; we're done
+		if haveEncounteredWhitespace && !unicode.IsSpace(charUnderCursor) {
+			return
+		}
+
+		// We've seen a space, so we're ready to stop
+		if unicode.IsSpace(charUnderCursor) {
+			haveEncounteredWhitespace = true
+		}
+
+		// We don't want the cursor to move off the end of everything
+		m.CharacterRight(true)
+	}
+
+	/*
+		charIdx := 0
+		for m.col < len(m.value[m.row]) {
+			if unicode.IsSpace(m.value[m.row][m.col]) {
+				break
+			}
+			fn(charIdx, m.col)
+			m.SetCursor(m.col + 1)
+			charIdx++
+		}
+
+	*/
+}
+
+// uppercaseRight changes the word to the right to uppercase.
+func (m *Model) uppercaseRight() {
+	m.doWordRight(func(_ int, i int) {
+		m.value[m.row][i] = unicode.ToUpper(m.value[m.row][i])
+	})
+}
+
+// lowercaseRight changes the word to the right to lowercase.
+func (m *Model) lowercaseRight() {
+	m.doWordRight(func(_ int, i int) {
+		m.value[m.row][i] = unicode.ToLower(m.value[m.row][i])
+	})
+}
+
+// capitalizeRight changes the word to the right to title case.
+func (m *Model) capitalizeRight() {
+	m.doWordRight(func(charIdx int, i int) {
+		if charIdx == 0 {
+			m.value[m.row][i] = unicode.ToTitle(m.value[m.row][i])
+		}
+	})
+}
+
+// repositionView repositions the view of the viewport based on the defined
+// scrolling behavior.
+func (m *Model) repositionView() {
+	min := m.viewport.YOffset
+	max := min + m.viewport.Height - 1
+
+	if row := m.cursorLineNumber(); row < min {
+		m.viewport.LineUp(min - row)
+	} else if row > max {
+		m.viewport.LineDown(row - max)
+	}
+}
+
+// moveToBegin moves the cursor to the beginning of the input.
+func (m *Model) moveToBegin() {
+	m.row = 0
+	m.SetCursor(0)
+}
+
+// moveToEnd moves the cursor to the end of the input.
+func (m *Model) moveToEnd() {
+	m.row = len(m.value) - 1
+	m.SetCursor(len(m.value[m.row]))
+}
+
 func (m Model) getPromptString(displayLine int) (prompt string) {
 	prompt = m.Prompt
 	if m.promptFunc == nil {
@@ -1320,15 +1324,6 @@ func (m *Model) splitLine(row, col int) {
 
 	m.col = 0
 	m.row++
-}
-
-// Paste is a command for pasting from the clipboard into the text input.
-func Paste() tea.Msg {
-	str, err := clipboard.ReadAll()
-	if err != nil {
-		return pasteErrMsg{err}
-	}
-	return pasteMsg(str)
 }
 
 func wrap(runes []rune, width int) [][]rune {
