@@ -29,134 +29,6 @@ const (
 type pasteMsg string
 type pasteErrMsg struct{ error }
 
-// KeyMap is the key bindings for different actions within the textarea.
-type KeyMap struct {
-	// Insert mode bindings
-	CharacterBackward       key.Binding
-	CharacterForward        key.Binding
-	DeleteAfterCursor       key.Binding
-	DeleteBeforeCursor      key.Binding
-	DeleteCharacterBackward key.Binding
-	DeleteCharacterForward  key.Binding
-	DeleteWordBackward      key.Binding
-	DeleteWordForward       key.Binding
-	InsertNewline           key.Binding
-	LineEnd                 key.Binding
-	LineNext                key.Binding
-	LinePrevious            key.Binding
-	LineStart               key.Binding
-	Paste                   key.Binding
-	WordBackward            key.Binding
-	WordForward             key.Binding
-	InputBegin              key.Binding
-	InputEnd                key.Binding
-
-	UppercaseWordForward  key.Binding
-	LowercaseWordForward  key.Binding
-	CapitalizeWordForward key.Binding
-
-	TransposeCharacterBackward key.Binding
-}
-
-// DefaultKeyMap is the default set of key bindings for navigating and acting
-// upon the textarea.
-var DefaultKeyMap = KeyMap{
-	CharacterForward:        key.NewBinding(key.WithKeys("right", "ctrl+f")),
-	CharacterBackward:       key.NewBinding(key.WithKeys("left", "ctrl+b")),
-	WordForward:             key.NewBinding(key.WithKeys("alt+right", "alt+f")),
-	WordBackward:            key.NewBinding(key.WithKeys("alt+left", "alt+b")),
-	LineNext:                key.NewBinding(key.WithKeys("down", "ctrl+n")),
-	LinePrevious:            key.NewBinding(key.WithKeys("up", "ctrl+p")),
-	DeleteWordBackward:      key.NewBinding(key.WithKeys("alt+backspace", "ctrl+w")),
-	DeleteWordForward:       key.NewBinding(key.WithKeys("alt+delete", "alt+d")),
-	DeleteAfterCursor:       key.NewBinding(key.WithKeys("ctrl+k")),
-	DeleteBeforeCursor:      key.NewBinding(key.WithKeys("ctrl+u")),
-	InsertNewline:           key.NewBinding(key.WithKeys("enter", "ctrl+m")),
-	DeleteCharacterBackward: key.NewBinding(key.WithKeys("backspace", "ctrl+h")),
-	DeleteCharacterForward:  key.NewBinding(key.WithKeys("delete", "ctrl+d")),
-	LineStart:               key.NewBinding(key.WithKeys("home", "ctrl+a")),
-	LineEnd:                 key.NewBinding(key.WithKeys("end", "ctrl+e")),
-	Paste:                   key.NewBinding(key.WithKeys("ctrl+v")),
-	InputBegin:              key.NewBinding(key.WithKeys("alt+<", "ctrl+home")),
-	InputEnd:                key.NewBinding(key.WithKeys("alt+>", "ctrl+end")),
-
-	CapitalizeWordForward: key.NewBinding(key.WithKeys("alt+c")),
-	LowercaseWordForward:  key.NewBinding(key.WithKeys("alt+l")),
-	UppercaseWordForward:  key.NewBinding(key.WithKeys("alt+u")),
-
-	TransposeCharacterBackward: key.NewBinding(key.WithKeys("ctrl+t")),
-}
-
-// LineInfo is a helper for keeping track of line information regarding
-// soft-wrapped lines.
-type LineInfo struct {
-	// Width is the number of columns in the line.
-	Width int
-	// CharWidth is the number of characters in the line to account for
-	// double-width runes.
-	CharWidth int
-	// Height is the number of rows in the line.
-	Height int
-	// StartColumn is the index of the first column of the line.
-	StartColumn int
-	// ColumnOffset is the number of columns that the cursor is offset from the
-	// start of the line.
-	ColumnOffset int
-	// RowOffset is the number of rows that the cursor is offset from the start
-	// of the line.
-	RowOffset int
-	// CharOffset is the number of characters that the cursor is offset
-	// from the start of the line. This will generally be equivalent to
-	// ColumnOffset, but will be different there are double-width runes before
-	// the cursor.
-	CharOffset int
-}
-
-// Style that will be applied to the text area.
-//
-// Style can be applied to focused and unfocused states to change the styles
-// depending on the focus state.
-//
-// For an introduction to styling with Lip Gloss see:
-// https://github.com/charmbracelet/lipgloss
-type Style struct {
-	Base             lipgloss.Style
-	CursorLine       lipgloss.Style
-	CursorLineNumber lipgloss.Style
-	EndOfBuffer      lipgloss.Style
-	LineNumber       lipgloss.Style
-	Placeholder      lipgloss.Style
-	Prompt           lipgloss.Style
-	Text             lipgloss.Style
-}
-
-// DefaultStyles returns the default styles for focused and blurred states for
-// the textarea.
-func DefaultStyles() (Style, Style) {
-	focused := Style{
-		Base:             lipgloss.NewStyle(),
-		CursorLine:       lipgloss.NewStyle().Background(lipgloss.AdaptiveColor{Light: "255", Dark: "0"}),
-		CursorLineNumber: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240"}),
-		EndOfBuffer:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "254", Dark: "0"}),
-		LineNumber:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
-		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
-		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
-		Text:             lipgloss.NewStyle(),
-	}
-	blurred := Style{
-		Base:             lipgloss.NewStyle(),
-		CursorLine:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
-		CursorLineNumber: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
-		EndOfBuffer:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "254", Dark: "0"}),
-		LineNumber:       lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
-		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
-		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
-		Text:             lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
-	}
-
-	return focused, blurred
-}
-
 // Model is the Bubble Tea model for this text area element.
 type Model struct {
 	Err error
@@ -296,92 +168,6 @@ func (m *Model) InsertRune(r rune) {
 	m.insertRunesFromUserInput([]rune{r})
 }
 
-// insertRunesFromUserInput inserts runes at the current cursor position.
-func (m *Model) insertRunesFromUserInput(runes []rune) {
-	// Clean up any special characters in the input provided by the
-	// clipboard. This avoids bugs due to e.g. tab characters and
-	// whatnot.
-	runes = m.san().Sanitize(runes)
-
-	var availSpace int
-	if m.CharLimit > 0 {
-		availSpace = m.CharLimit - m.Length()
-		// If the char limit's been reached, cancel.
-		if availSpace <= 0 {
-			return
-		}
-		// If there's not enough space to paste the whole thing cut the pasted
-		// runes down so they'll fit.
-		if availSpace < len(runes) {
-			runes = runes[:len(runes)-availSpace]
-		}
-	}
-
-	// Split the input into lines.
-	var lines [][]rune
-	lstart := 0
-	for i := 0; i < len(runes); i++ {
-		if runes[i] == '\n' {
-			lines = append(lines, runes[lstart:i])
-			lstart = i + 1
-		}
-	}
-	if lstart < len(runes) {
-		// The last line did not end with a newline character.
-		// Take it now.
-		lines = append(lines, runes[lstart:])
-	}
-
-	// Obey the maximum height limit.
-	if len(m.value)+len(lines)-1 > maxHeight {
-		allowedHeight := max(0, maxHeight-len(m.value)+1)
-		lines = lines[:allowedHeight]
-	}
-
-	if len(lines) == 0 {
-		// Nothing left to insert.
-		return
-	}
-
-	// Save the reminder of the original line at the current
-	// cursor position.
-	tail := make([]rune, len(m.value[m.row][m.col:]))
-	copy(tail, m.value[m.row][m.col:])
-
-	// Paste the first line at the current cursor position.
-	m.value[m.row] = append(m.value[m.row][:m.col], lines[0]...)
-	m.col += len(lines[0])
-
-	if numExtraLines := len(lines) - 1; numExtraLines > 0 {
-		// Add the new lines.
-		// We try to reuse the slice if there's already space.
-		var newGrid [][]rune
-		if cap(m.value) >= len(m.value)+numExtraLines {
-			// Can reuse the extra space.
-			newGrid = m.value[:len(m.value)+numExtraLines]
-		} else {
-			// No space left; need a new slice.
-			newGrid = make([][]rune, len(m.value)+numExtraLines)
-			copy(newGrid, m.value[:m.row+1])
-		}
-		// Add all the rows that were after the cursor in the original
-		// grid at the end of the new grid.
-		copy(newGrid[m.row+1+numExtraLines:], m.value[m.row+1:])
-		m.value = newGrid
-		// Insert all the new lines in the middle.
-		for _, l := range lines[1:] {
-			m.row++
-			m.value[m.row] = l
-			m.col = len(l)
-		}
-	}
-
-	// Finally add the tail at the end of the last line inserted.
-	m.value[m.row] = append(m.value[m.row], tail...)
-
-	m.SetCursor(m.col)
-}
-
 // Value returns the value of the text input.
 func (m Model) Value() string {
 	if m.value == nil {
@@ -441,10 +227,15 @@ func (m *Model) CursorDown(bindToLine bool) {
 		return
 	}
 
+	stopThreshold := len(m.value[m.row])
+	if bindToLine {
+		stopThreshold--
+	}
+
 	offset := 0
 	for offset < charOffset {
 		// TODO TESTING
-		if m.col >= len(m.value[m.row]) || offset >= nli.CharWidth-1 {
+		if m.col >= stopThreshold || offset >= nli.CharWidth-1 {
 			break
 		}
 		offset += rw.RuneWidth(m.value[m.row][m.col])
@@ -477,9 +268,14 @@ func (m *Model) CursorUp(bindToLine bool) {
 		return
 	}
 
+	stopThreshold := len(m.value[m.row])
+	if bindToLine {
+		stopThreshold--
+	}
+
 	offset := 0
 	for offset < charOffset {
-		if m.col >= len(m.value[m.row]) || offset >= nli.CharWidth-1 {
+		if m.col >= stopThreshold || offset >= nli.CharWidth-1 {
 			break
 		}
 		offset += rw.RuneWidth(m.value[m.row][m.col])
@@ -541,47 +337,19 @@ func (m *Model) Reset() {
 	m.SetCursor(0)
 }
 
-// rsan initializes or retrieves the rune sanitizer.
-func (m *Model) san() runeutil.Sanitizer {
-	if m.rsan == nil {
-		// Textinput has all its input on a single line so collapse
-		// newlines/tabs to single spaces.
-		m.rsan = runeutil.NewSanitizer()
-	}
-	return m.rsan
-}
-
-// deleteBeforeCursor deletes all text before the cursor. Returns whether or
+// DeleteBeforeCursor deletes all text before the cursor. Returns whether or
 // not the cursor blink should be reset.
-func (m *Model) deleteBeforeCursor() {
+func (m *Model) DeleteBeforeCursor() {
 	m.value[m.row] = m.value[m.row][m.col:]
 	m.SetCursor(0)
 }
 
-// deleteAfterCursor deletes all text after the cursor. Returns whether or not
+// DeleteAfterCursor deletes all text after the cursor. Returns whether or not
 // the cursor blink should be reset. If input is masked delete everything after
 // the cursor so as not to reveal word breaks in the masked input.
-func (m *Model) deleteAfterCursor() {
+func (m *Model) DeleteAfterCursor() {
 	m.value[m.row] = m.value[m.row][:m.col]
-	m.SetCursor(len(m.value[m.row]))
-}
-
-// transposeLeft exchanges the runes at the cursor and immediately
-// before. No-op if the cursor is at the beginning of the line.  If
-// the cursor is not at the end of the line yet, moves the cursor to
-// the right.
-func (m *Model) transposeLeft() {
-	if m.col == 0 || len(m.value[m.row]) < 2 {
-		return
-	}
-	if m.col >= len(m.value[m.row]) {
-		m.SetCursor(m.col - 1)
-	}
-	m.value[m.row][m.col-1], m.value[m.row][m.col] =
-		m.value[m.row][m.col], m.value[m.row][m.col-1]
-	if m.col < len(m.value[m.row]) {
-		m.SetCursor(m.col + 1)
-	}
+	m.SetCursor(len(m.value[m.row]) - 1)
 }
 
 // CharacterRight moves the cursor one character to the right.
@@ -621,10 +389,10 @@ func (m *Model) CharacterLeft(insideLine bool) {
 	}
 }
 
-// WordLeft moves the cursor one word to the left. Returns whether or not the
+// WordStartLeft moves the cursor one word to the left. Returns whether or not the
 // cursor blink should be reset. If input is masked, move input to the start
 // so as not to reveal word breaks in the masked input.
-func (m *Model) WordLeft() {
+func (m *Model) WordStartLeft() {
 	// In order to do word-left, we need to a) cross a word boundary (whitespace) and
 	haveCrossedWordBoundary := false
 	if m.row == 0 && m.col == 0 {
@@ -675,10 +443,10 @@ func (m *Model) WordLeft() {
 	*/
 }
 
-// WordRight moves the cursor one word to the right. Returns whether or not the
+// WordStartRight moves the cursor one word to the right. Returns whether or not the
 // cursor blink should be reset. If the input is masked, move input to the end
 // so as not to reveal word breaks in the masked input.
-func (m *Model) WordRight() {
+func (m *Model) WordStartRight() {
 	m.doWordRight(func(int, int) { /* nothing */ })
 }
 
@@ -806,14 +574,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.mergeLineBelow(m.row)
 				break
 			}
-			m.deleteAfterCursor()
+			m.DeleteAfterCursor()
 		case key.Matches(msg, m.KeyMap.DeleteBeforeCursor):
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col <= 0 {
 				m.mergeLineAbove(m.row)
 				break
 			}
-			m.deleteBeforeCursor()
+			m.DeleteBeforeCursor()
 		case key.Matches(msg, m.KeyMap.DeleteCharacterBackward):
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col <= 0 {
@@ -866,27 +634,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			// almost definitely in insert mode
 			m.CursorDown(false)
 		case key.Matches(msg, m.KeyMap.WordForward):
-			m.WordRight()
+			m.WordStartRight()
 		case key.Matches(msg, m.KeyMap.Paste):
 			return m, Paste
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
 			m.CharacterLeft(false /* insideLine */)
 		case key.Matches(msg, m.KeyMap.LinePrevious):
-			m.CursorUp()
+			// If the user is using the arrow keys, we don't want to be binding to the end of the line because they're
+			// almost definitely in insert mode
+			m.CursorUp(false)
 		case key.Matches(msg, m.KeyMap.WordBackward):
-			m.WordLeft()
+			m.WordStartLeft()
 		case key.Matches(msg, m.KeyMap.InputBegin):
 			m.moveToBegin()
 		case key.Matches(msg, m.KeyMap.InputEnd):
 			m.moveToEnd()
-		case key.Matches(msg, m.KeyMap.LowercaseWordForward):
-			m.lowercaseRight()
-		case key.Matches(msg, m.KeyMap.UppercaseWordForward):
-			m.uppercaseRight()
-		case key.Matches(msg, m.KeyMap.CapitalizeWordForward):
-			m.capitalizeRight()
-		case key.Matches(msg, m.KeyMap.TransposeCharacterBackward):
-			m.transposeLeft()
 
 		default:
 			m.insertRunesFromUserInput(msg.Runes)
@@ -1018,8 +780,105 @@ func Paste() tea.Msg {
 }
 
 // ====================================================================================================
-//                                   Private Helper Functions
+//
+//	Private Helper Functions
+//
 // ====================================================================================================
+// rsan initializes or retrieves the rune sanitizer.
+func (m *Model) san() runeutil.Sanitizer {
+	if m.rsan == nil {
+		// Textinput has all its input on a single line so collapse
+		// newlines/tabs to single spaces.
+		m.rsan = runeutil.NewSanitizer()
+	}
+	return m.rsan
+}
+
+// insertRunesFromUserInput inserts runes at the current cursor position.
+func (m *Model) insertRunesFromUserInput(runes []rune) {
+	// Clean up any special characters in the input provided by the
+	// clipboard. This avoids bugs due to e.g. tab characters and
+	// whatnot.
+	runes = m.san().Sanitize(runes)
+
+	var availSpace int
+	if m.CharLimit > 0 {
+		availSpace = m.CharLimit - m.Length()
+		// If the char limit's been reached, cancel.
+		if availSpace <= 0 {
+			return
+		}
+		// If there's not enough space to paste the whole thing cut the pasted
+		// runes down so they'll fit.
+		if availSpace < len(runes) {
+			runes = runes[:len(runes)-availSpace]
+		}
+	}
+
+	// Split the input into lines.
+	var lines [][]rune
+	lstart := 0
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == '\n' {
+			lines = append(lines, runes[lstart:i])
+			lstart = i + 1
+		}
+	}
+	if lstart < len(runes) {
+		// The last line did not end with a newline character.
+		// Take it now.
+		lines = append(lines, runes[lstart:])
+	}
+
+	// Obey the maximum height limit.
+	if len(m.value)+len(lines)-1 > maxHeight {
+		allowedHeight := max(0, maxHeight-len(m.value)+1)
+		lines = lines[:allowedHeight]
+	}
+
+	if len(lines) == 0 {
+		// Nothing left to insert.
+		return
+	}
+
+	// Save the reminder of the original line at the current
+	// cursor position.
+	tail := make([]rune, len(m.value[m.row][m.col:]))
+	copy(tail, m.value[m.row][m.col:])
+
+	// Paste the first line at the current cursor position.
+	m.value[m.row] = append(m.value[m.row][:m.col], lines[0]...)
+	m.col += len(lines[0])
+
+	if numExtraLines := len(lines) - 1; numExtraLines > 0 {
+		// Add the new lines.
+		// We try to reuse the slice if there's already space.
+		var newGrid [][]rune
+		if cap(m.value) >= len(m.value)+numExtraLines {
+			// Can reuse the extra space.
+			newGrid = m.value[:len(m.value)+numExtraLines]
+		} else {
+			// No space left; need a new slice.
+			newGrid = make([][]rune, len(m.value)+numExtraLines)
+			copy(newGrid, m.value[:m.row+1])
+		}
+		// Add all the rows that were after the cursor in the original
+		// grid at the end of the new grid.
+		copy(newGrid[m.row+1+numExtraLines:], m.value[m.row+1:])
+		m.value = newGrid
+		// Insert all the new lines in the middle.
+		for _, l := range lines[1:] {
+			m.row++
+			m.value[m.row] = l
+			m.col = len(l)
+		}
+	}
+
+	// Finally add the tail at the end of the last line inserted.
+	m.value[m.row] = append(m.value[m.row], tail...)
+
+	m.SetCursor(m.col)
+}
 
 // deleteWordLeft deletes the word left to the cursor. Returns whether or not
 // the cursor blink should be reset.
@@ -1149,29 +1008,6 @@ func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
 		}
 
 	*/
-}
-
-// uppercaseRight changes the word to the right to uppercase.
-func (m *Model) uppercaseRight() {
-	m.doWordRight(func(_ int, i int) {
-		m.value[m.row][i] = unicode.ToUpper(m.value[m.row][i])
-	})
-}
-
-// lowercaseRight changes the word to the right to lowercase.
-func (m *Model) lowercaseRight() {
-	m.doWordRight(func(_ int, i int) {
-		m.value[m.row][i] = unicode.ToLower(m.value[m.row][i])
-	})
-}
-
-// capitalizeRight changes the word to the right to title case.
-func (m *Model) capitalizeRight() {
-	m.doWordRight(func(charIdx int, i int) {
-		if charIdx == 0 {
-			m.value[m.row][i] = unicode.ToTitle(m.value[m.row][i])
-		}
-	})
 }
 
 // repositionView repositions the view of the viewport based on the defined
@@ -1330,6 +1166,7 @@ func (m *Model) splitLine(row, col int) {
 	m.row++
 }
 
+// Wrap a rune string into an array of rune strings
 func wrap(runes []rune, width int) [][]rune {
 	var (
 		lines  = [][]rune{{}}

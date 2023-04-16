@@ -35,7 +35,7 @@ type VimTextAreaModel struct {
 func NewVimTextArea() VimTextAreaModel {
 	area := New()
 	// TODO remove this
-	area.SetValue("foo bar bang\n\nthis is a thing")
+	area.SetValue("four score and seven years ago our founding fathers did a really cool thing that's really long\n\nthis is a thing")
 	area.CursorEnd(true) // This is a bit of a hack; SetValue should really do this right
 	return VimTextAreaModel{
 		mode:      NormalMode,
@@ -67,6 +67,11 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			model.area, cmd = model.area.Update(msg)
 			resultCmds = append(resultCmds, cmd)
 		case NormalMode:
+			// TODO d^ digraph
+			// TODO d$ digraph
+			// TODO dd digraph
+			// TODO c^ digraph
+			// TODO c$ digraph
 			switch msg.String() {
 			case "a":
 				model.area.CharacterRight(false)
@@ -74,15 +79,17 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			case "h":
 				model.area.CharacterLeft(true)
 			case "j":
+				// We want line-binding because we're in normal mode, so we shouldn't have the cursor beyond the end of the line
 				model.area.CursorDown(true)
 			case "k":
-				model.area.CursorUp()
+				// We want line-binding because we're in normal mode, so we shouldn't have the cursor beyond the end of the line
+				model.area.CursorUp(true)
 			case "l":
 				model.area.CharacterRight(shouldBindToLineWhenMovingRight)
 			case "b":
-				model.area.WordLeft()
+				model.area.WordStartLeft()
 			case "w":
-				model.area.WordRight()
+				model.area.WordStartRight()
 			case "i":
 				model.mode = InsertMode
 				break
@@ -90,6 +97,12 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				model.area.CursorStart()
 			case "$":
 				model.area.CursorEnd(true)
+			case "D":
+				model.area.DeleteAfterCursor()
+			case "C":
+				model.area.DeleteAfterCursor()
+				model.area.CharacterRight(false)
+				model.mode = InsertMode
 			}
 		}
 	}
