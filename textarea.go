@@ -97,10 +97,10 @@ type Model struct {
 	// component. When false, ignore keyboard input and hide the cursor.
 	focus bool
 
-	// Cursor column.
+	// Cursor column in the 'value' rune grid
 	col int
 
-	// Cursor row.
+	// Cursor row in the 'value' rune grid
 	row int
 
 	// Last character offset, used to maintain state when the cursor is moved
@@ -441,6 +441,41 @@ func (m *Model) WordStartLeft() {
 			m.SetCursor(m.col - 1)
 		}
 	*/
+}
+
+func (m *Model) WordEndRight() {
+	// In order to do word-left, we need to a) cross a word boundary (whitespace) and
+	haveCrossedWordBoundary := false
+	if m.row == 0 && m.col == 0 {
+		// Special case to handle empty input and being at the beginning
+		haveCrossedWordBoundary = true
+	} else if m.row >= len(m.value)-1 && m.col >= len(m.value[m.row])-1 {
+		// This is a special case - if we're at the end of the input, we'll consider ourselves to already have
+		// crossed a word boundary so that we can jump from end-of-input to the start of the last word
+		haveCrossedWordBoundary = true
+	}
+
+	for {
+		// Stop condition: we're at a word start, having already crossed a word boundary
+		isCursorAtWordEnd := m.col >= len(m.value[m.row])-1 || (!unicode.IsSpace(m.value[m.row][m.col]) && unicode.IsSpace(m.value[m.row][m.col+1]))
+		if haveCrossedWordBoundary && isCursorAtWordEnd {
+			return
+		}
+
+		// We're not done, so we have to scroll
+		if m.col == 0 {
+			haveCrossedWordBoundary = true
+			m.row--
+			m.CursorEnd(true)
+			continue
+		}
+
+		if unicode.IsSpace(m.value[m.row][m.col]) {
+			haveCrossedWordBoundary = true
+		}
+
+		m.CharacterLeft(true)
+	}
 }
 
 // WordStartRight moves the cursor one word to the right. Returns whether or not the
@@ -784,6 +819,116 @@ func Paste() tea.Msg {
 //	Private Helper Functions
 //
 // ====================================================================================================
+/*
+shouldEagerStop means that the algorithm will stop when it finds the first instance of a word (the first characters)
+in the direction of algorithm travel. When set, this means:
+- when moving right, the algorithm will leave the cursor at the start of the word
+- when moving left, the algorithm will leave the cursor at the end of the word
+
+!shouldEagerStop tells the algorithm to stop at the *last* instance of a word (the last characters) in the
+direction of algorithm travel. This means:
+- when moving right, the algorithm will leave the cursor at the end of the word
+- when moving left, the algorithm will leave the cursor at the start of the word
+*/
+func (m Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
+	// This function utilizes the insight that the textarea string can be thought of as a "tape" of words, joined by whitespace
+	// With this insight, we can handle both (left,right) and (word_start,word_end) by simply sliding along the tape in
+	// the appropriate direction looking for the sequence we want
+
+	// If no lines, abort immediately
+	if len(m.value) == 0 {
+		return
+	}
+
+	directionMultiplier := 1
+	if !isMovingRight {
+		directionMultiplier = -1
+	}
+
+	// Will be used later
+	eagerMultiplier := -1
+	if !shouldEagerStop {
+		eagerMultiplier = 1
+	}
+
+	// Figure out what the row index of each end of the tape is
+	limitRowIndex := len(m.value) - 1
+	if !isMovingRight {
+		limitRowIndex = 0
+	}
+
+	// Our column might be off the right edge of the line; ensure we account for that
+	sanitizedColIdx := min(m.col, len(m.value[m.row])-1)
+
+	// To start the algo off, shove the cursor column one character in the direction of travel
+	// This prevents doing nothing if you're already at a word start/end
+	nextColIdx := sanitizedColIdx + directionMultiplier
+	for {
+		// The proposed column might be off either end of the line, so let's first calculate the boundary beyond
+		// which we know that the proposed column is off the edge fo the line
+		limitColIndex := len(m.value[m.row]) - 1
+		if !isMovingRight {
+			limitColIndex = 0
+		}
+
+		// Now, check if the proposed column would indeed put us off the line
+		remainingColsBeforeLimit := directionMultiplier * (limitColIndex - nextColIdx)
+		if remainingColsBeforeLimit < 0 {
+			// We're off the end; can we go to another line to keep going?
+			nextRowIdx := m.row + directionMultiplier
+			remainingRowsBeforeLimit := directionMultiplier * (nextRowIdx - limitRowIndex)
+			if remainingRowsBeforeLimit < 0 {
+				// We're at the end of the "tape"; nothing to do
+				return
+			}
+
+			// We still have at least one more line, so let's use it (which means we're crossing a newline char which
+			// means we're crossing a word boundary)
+			m.row += directionMultiplier
+			if isMovingRight {
+				nextColIdx = 0
+			} else {
+				nextColIdx = len(m.value[m.row]) - 1
+			}
+		}
+
+		// Now that we know we're moving the column index to a valid spot, move it
+		m.col = nextColIdx
+		cursorChar := m.value[m.row][m.col]
+
+		// Grab a comparison column which must be whitespace to stop the algorithm
+		// The eager multiplier means that "eager" will require whitespace to be *behind* the cursor in the direction
+		// of algorithm travel (thereby making it eager), whereas non-eager will require whitespace to be *in front* of the cursor
+		// in the direction of algorithm travel
+		cursorAdjacentColIdx := m.col + eagerMultiplier*directionMultiplier
+
+		// If the cursor adjacent col idx is beyond the limit, it's automatically treated as whitespace
+		// Recalculate the limitColIdx (since our cursor might have changed rows)
+		limitColIndex = len(m.value[m.row]) - 1
+		if !isMovingRight {
+			limitColIndex = 0
+		}
+
+		// Now grab a character that may or may not be whitespace
+		// If the col we're grabbing is off the end of the line, it's automatically a newline
+		remainingColsBeforeCursorAdjacentColIsOff := directionMultiplier * (limitColIndex - cursorAdjacentColIdx)
+		var candidateWhitespaceChar rune
+		if remainingColsBeforeCursorAdjacentColIsOff < 0 {
+			candidateWhitespaceChar = '\n'
+		} else {
+			candidateWhitespaceChar = m.value[m.row][cursorAdjacentColIdx]
+		}
+
+		// Evaluate if we reached our target
+		if !unicode.IsSpace(cursorChar) && unicode.IsSpace(candidateWhitespaceChar) {
+			return
+		}
+
+		// We're not done, so prep for next iteration
+		nextColIdx = m.col + directionMultiplier
+	}
+}
+
 // rsan initializes or retrieves the rune sanitizer.
 func (m *Model) san() runeutil.Sanitizer {
 	if m.rsan == nil {
