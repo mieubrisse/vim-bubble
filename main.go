@@ -7,11 +7,11 @@ import (
 )
 
 func main() {
-	area := New()
+	area := NewVimTextArea()
 	area.Focus()
 
 	model := appModel{
-		textarea: area,
+		area: area,
 	}
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
