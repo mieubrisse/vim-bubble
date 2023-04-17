@@ -378,6 +378,28 @@ func (m *Model) DeleteAfterCursor() {
 	m.SetCursor(len(m.value[m.row]) - 1)
 }
 
+// Deletes the single character on the cursor
+// Returnst he rune that was deleted (if any)
+func (m *Model) DeleteOnCursor() []rune {
+	currentRow := m.value[m.row]
+	if len(currentRow) == 0 {
+		return make([]rune, 0)
+	}
+
+	deletedChar := []rune{currentRow[m.col]}
+	newRow := currentRow[:m.col]
+	if m.col < len(currentRow)-1 {
+		// i.e., there are more characters after the cursor
+		newRow = append(newRow, currentRow[m.col+1:]...)
+	}
+	m.value[m.row] = newRow
+
+	newCol := min(m.col, len(newRow)-1)
+	m.SetCursor(newCol)
+
+	return deletedChar
+}
+
 // CharacterRight moves the cursor one character to the right.
 // If bindToLine is set, the cursor will not move psat the last character of the line
 func (m *Model) CharacterRight(bindToLine bool) {

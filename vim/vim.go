@@ -53,6 +53,9 @@ type Model struct {
 	// The pointer within the history of what the text buffer is currently displaying (needed for redoing)
 	historyPointer int
 
+	// Corresponds to Vim's " register, which contains both yanked and deleted text
+	commaRegister string
+
 	width  int
 	height int
 }
@@ -84,22 +87,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				model.mode = NormalMode
 				model.area.CharacterLeft(true)
 
-				// TODO don't save a history step if nothing new was written
-				if model.area.Value() != model.undoHistory[len(model.undoHistory)-1] {
-					// If the user has rewound, then we discard things they've rewound past
-					preservedHistory := model.undoHistory[:model.historyPointer+1]
-					newHistory := append(
-						preservedHistory,
-						model.area.Value(),
-					)
-
-					// Now discard down to the appropriate number of history steps
-					subsliceStartIdx := max(0, len(newHistory)-numHistoryStepsToKeep)
-					model.undoHistory = newHistory[subsliceStartIdx:]
-
-					// We reset the steps-rewound because we've now thrown away the steps the user rewound past
-					model.historyPointer = len(model.undoHistory) - 1
-				}
+				model.saveHistory()
 
 				break
 			}
@@ -165,10 +153,14 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				case "d":
 					model.area.DeleteBeforeCursor()
 					model.nGraphBuffer = ""
+					// TODO extract this into something better!
+					model.saveHistory()
 				case "c":
 					model.area.DeleteBeforeCursor()
 					model.mode = InsertMode
 					model.nGraphBuffer = ""
+					// TODO extract this into something better!
+					model.saveHistory()
 				default:
 					model.area.CursorStart()
 				}
@@ -177,6 +169,8 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				case "d":
 					model.area.DeleteAfterCursor()
 					model.nGraphBuffer = ""
+					// TODO extract this into something better!
+					model.saveHistory()
 				case "c":
 					model.area.DeleteAfterCursor()
 					model.area.CharacterRight(false)
@@ -200,6 +194,8 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				model.area.RowEnd()
 			case "D":
 				model.area.DeleteAfterCursor()
+				// TODO extract this into something better!
+				model.saveHistory()
 			case "C":
 				model.area.DeleteAfterCursor()
 				model.area.CharacterRight(false)
@@ -219,6 +215,8 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				case "d":
 					model.nGraphBuffer = ""
 					model.area.DeleteLine()
+					// TODO extract this into something better!
+					model.saveHistory()
 				default:
 					model.nGraphBuffer = ""
 				}
@@ -253,6 +251,17 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					model.area.SetValue(model.undoHistory[newHistoryPointer])
 					model.historyPointer = newHistoryPointer
 				}
+				// TODO keep the cursor position when reinserting text
+			case "x":
+				deletedRunes := model.area.DeleteOnCursor()
+				model.commaRegister = string(deletedRunes)
+				// TODO extract this into something better!
+				model.saveHistory()
+			case "p":
+				// TODO make this a better thing in the textarea class - it's a kind of hacky way to implement the "paste AFTER cursor location" logic of Vim
+				model.area.CharacterRight(false)
+				model.area.InsertString(model.commaRegister)
+				model.area.CharacterLeft(false)
 			}
 			// TODO 't', 'f', ';', and ','
 		}
@@ -299,8 +308,28 @@ func (model *Model) SetValue(str string) {
 }
 
 // ====================================================================================================
-//                                   Private Helper Functions
+//
+//	Private Helper Functions
+//
 // ====================================================================================================
+func (model *Model) saveHistory() {
+	// TODO don't save a history step if nothing new was written
+	if model.area.Value() != model.undoHistory[len(model.undoHistory)-1] {
+		// If the user has rewound, then we discard things they've rewound past
+		preservedHistory := model.undoHistory[:model.historyPointer+1]
+		newHistory := append(
+			preservedHistory,
+			model.area.Value(),
+		)
+
+		// Now discard down to the appropriate number of history steps
+		subsliceStartIdx := max(0, len(newHistory)-numHistoryStepsToKeep)
+		model.undoHistory = newHistory[subsliceStartIdx:]
+
+		// We reset the steps-rewound because we've now thrown away the steps the user rewound past
+		model.historyPointer = len(model.undoHistory) - 1
+	}
+}
 
 func (model Model) renderStatusBar() string {
 	if !model.isFocused {
