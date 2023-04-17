@@ -5,7 +5,11 @@ This repository contains a [BubbleTea](https://github.com/charmbracelet/bubblete
 
 How to use
 ----------
+```bash
+go get github.com/mieubrisse/vim-bubble
+```
 ```go
+vim := vim.New()
 ```
 
 Functionality
