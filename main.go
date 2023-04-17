@@ -3,16 +3,16 @@ package main
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mieubrisse/vim-textarea-testing/vim_textarea"
+	"github.com/mieubrisse/vim-textarea-testing/vim"
 	"os"
 )
 
 func main() {
-	area := vim_textarea.NewVimTextArea()
+	area := vim.New()
 	area.Focus()
 
 	model := appModel{
-		area: area,
+		vim: area,
 	}
 
 	p := tea.NewProgram(model, tea.WithAltScreen())

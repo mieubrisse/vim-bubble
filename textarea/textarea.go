@@ -158,6 +158,7 @@ func New() Model {
 func (m *Model) SetValue(s string) {
 	m.Reset()
 	m.InsertString(s)
+	m.CharacterLeft(true)
 }
 
 // InsertString inserts a string at the cursor position.

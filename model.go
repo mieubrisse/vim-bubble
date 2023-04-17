@@ -2,11 +2,11 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mieubrisse/vim-textarea-testing/vim_textarea"
+	"github.com/mieubrisse/vim-textarea-testing/vim"
 )
 
 type appModel struct {
-	area vim_textarea.VimTextAreaModel
+	vim vim.Model
 }
 
 func (model appModel) Init() tea.Cmd {
@@ -21,14 +21,14 @@ func (model appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		}
 	case tea.WindowSizeMsg:
-		model.area.Resize(msg.Width, msg.Height)
+		model.vim.Resize(msg.Width, msg.Height)
 	}
 
 	var cmd tea.Cmd
-	model.area, cmd = model.area.Update(msg)
+	model.vim, cmd = model.vim.Update(msg)
 	return model, cmd
 }
 
 func (model appModel) View() string {
-	return model.area.View()
+	return model.vim.View()
 }

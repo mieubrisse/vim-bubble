@@ -1,4 +1,4 @@
-package vim_textarea
+package vim
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
@@ -7,12 +7,12 @@ import (
 	"strings"
 )
 
-type VimTextAreaMode string
+type Mode string
 
 const (
-	NormalMode  VimTextAreaMode = "NORMAL"
-	InsertMode  VimTextAreaMode = "INSERT"
-	CommandMode VimTextAreaMode = "COMMAND"
+	NormalMode  Mode = "NORMAL"
+	InsertMode  Mode = "INSERT"
+	CommandMode Mode = "COMMAND"
 )
 
 const (
@@ -29,11 +29,12 @@ const (
 	// TODO Make this dynamic by looking at the length of the mode strings!
 	maxModePanelCharacters  = 6
 	desiredModePanelPadding = 1
+
+	numHistoryStepsToKeep = 20
 )
 
-// Rename?
-type VimTextAreaModel struct {
-	mode VimTextAreaMode
+type Model struct {
+	mode Mode
 
 	isFocused bool
 
@@ -45,29 +46,34 @@ type VimTextAreaModel struct {
 
 	// TODO something about the written vs unwritten buffer
 
+	// The undo history, which gets an entry every time we leave insert mode
+	// New history entries are added to the back of this list
+	undoHistory []string
+
+	// The pointer within the history of what the text buffer is currently displaying (needed for redoing)
+	historyPointer int
+
 	width  int
 	height int
 }
 
-// TODO rename
-func NewVimTextArea() VimTextAreaModel {
+func New() Model {
 	area := textarea.New()
+	area.SetValue("")
 	area.Prompt = ""
-	// TODO remove this
-	area.SetValue("four score and seven years ago our founding fathers did a really cool thing that's really long\n\nthis is a thing")
-	area.CursorEnd(true) // This is a bit of a hack; SetValue should really do this right
-	return VimTextAreaModel{
-		mode:      NormalMode,
-		isFocused: false,
-		area:      area,
+	return Model{
+		mode:        NormalMode,
+		isFocused:   false,
+		area:        area,
+		undoHistory: []string{""},
 	}
 }
 
-func (model VimTextAreaModel) Init() tea.Cmd {
+func (model Model) Init() tea.Cmd {
 	return nil
 }
 
-func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
+func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var resultCmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -77,7 +83,24 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			if msg.String() == "esc" {
 				model.mode = NormalMode
 				model.area.CharacterLeft(true)
-				// TODO if the cursor is off the end of the line, move it back
+
+				// TODO don't save a history step if nothing new was written
+				if model.area.Value() != model.undoHistory[len(model.undoHistory)-1] {
+					// If the user has rewound, then we discard things they've rewound past
+					preservedHistory := model.undoHistory[:model.historyPointer+1]
+					newHistory := append(
+						preservedHistory,
+						model.area.Value(),
+					)
+
+					// Now discard down to the appropriate number of history steps
+					subsliceStartIdx := max(0, len(newHistory)-numHistoryStepsToKeep)
+					model.undoHistory = newHistory[subsliceStartIdx:]
+
+					// We reset the steps-rewound because we've now thrown away the steps the user rewound past
+					model.historyPointer = len(model.undoHistory) - 1
+				}
+
 				break
 			}
 
@@ -85,8 +108,8 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 			model.area, cmd = model.area.Update(msg)
 			resultCmds = append(resultCmds, cmd)
 		case NormalMode:
-			// TODO c^ digraph
-			// TODO c$ digraph
+			// TODO clean this whole thing up to make the processing of motion commands way better!
+
 			// TODO handle ngraphs + motion keys (right now they just clear)
 			switch msg.String() {
 			case "esc":
@@ -141,9 +164,11 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				switch model.nGraphBuffer {
 				case "d":
 					model.area.DeleteBeforeCursor()
+					model.nGraphBuffer = ""
 				case "c":
 					model.area.DeleteBeforeCursor()
 					model.mode = InsertMode
+					model.nGraphBuffer = ""
 				default:
 					model.area.CursorStart()
 				}
@@ -151,10 +176,12 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				switch model.nGraphBuffer {
 				case "d":
 					model.area.DeleteAfterCursor()
+					model.nGraphBuffer = ""
 				case "c":
 					model.area.DeleteAfterCursor()
 					model.area.CharacterRight(false)
 					model.mode = InsertMode
+					model.nGraphBuffer = ""
 				default:
 					model.area.CursorEnd(true)
 				}
@@ -214,8 +241,18 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				}
 			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 				model.nGraphBuffer += msg.String()
-			case "/":
-				model.Blur()
+			case "u":
+				newHistoryPointer := max(0, model.historyPointer-1)
+				if newHistoryPointer != model.historyPointer {
+					model.area.SetValue(model.undoHistory[newHistoryPointer])
+					model.historyPointer = newHistoryPointer
+				}
+			case "ctrl+r":
+				newHistoryPointer := min(len(model.undoHistory)-1, model.historyPointer+1)
+				if newHistoryPointer != model.historyPointer {
+					model.area.SetValue(model.undoHistory[newHistoryPointer])
+					model.historyPointer = newHistoryPointer
+				}
 			}
 			// TODO 't', 'f', ';', and ','
 		}
@@ -223,7 +260,7 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 	return model, tea.Batch(resultCmds...)
 }
 
-func (model VimTextAreaModel) View() string {
+func (model Model) View() string {
 	resultBuilder := strings.Builder{}
 
 	resultBuilder.WriteString(model.area.View())
@@ -233,21 +270,21 @@ func (model VimTextAreaModel) View() string {
 	return resultBuilder.String()
 }
 
-func (model *VimTextAreaModel) Focus() {
+func (model *Model) Focus() {
 	model.isFocused = true
 	model.area.Focus()
 }
 
-func (model *VimTextAreaModel) Blur() {
+func (model *Model) Blur() {
 	model.isFocused = false
 	model.area.Blur()
 }
 
-func (model VimTextAreaModel) Focused() bool {
+func (model Model) Focused() bool {
 	return model.isFocused
 }
 
-func (model *VimTextAreaModel) Resize(width int, height int) {
+func (model *Model) Resize(width int, height int) {
 	model.width = width
 	model.height = height
 
@@ -257,7 +294,15 @@ func (model *VimTextAreaModel) Resize(width int, height int) {
 	model.area.SetHeight(height - 1)
 }
 
-func (model VimTextAreaModel) renderStatusBar() string {
+func (model *Model) SetValue(str string) {
+	model.area.SetValue(str)
+}
+
+// ====================================================================================================
+//                                   Private Helper Functions
+// ====================================================================================================
+
+func (model Model) renderStatusBar() string {
 	if !model.isFocused {
 		return strings.Repeat(" ", model.width)
 	}
@@ -295,10 +340,6 @@ func (model VimTextAreaModel) renderStatusBar() string {
 
 	return modePanelStr + padStr + ngraphPanelStr
 }
-
-// ====================================================================================================
-//                                   Private Helper Functions
-// ====================================================================================================
 
 // Takes the given string, centers it, truncating as needed, and adds padds if the desired size is bigger than
 // the string itself
