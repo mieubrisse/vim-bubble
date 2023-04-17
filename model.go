@@ -2,7 +2,7 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mieubrisse/vim-textarea-testing/vim"
+	"github.com/mieubrisse/vim-bubble/vim"
 )
 
 type appModel struct {

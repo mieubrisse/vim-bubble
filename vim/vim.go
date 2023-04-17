@@ -3,7 +3,7 @@ package vim
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mieubrisse/vim-textarea-testing/textarea"
+	"github.com/mieubrisse/vim-bubble/textarea"
 	"strings"
 )
 

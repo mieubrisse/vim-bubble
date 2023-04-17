@@ -1,4 +1,4 @@
-module github.com/mieubrisse/vim-textarea-testing
+module github.com/mieubrisse/vim-bubble
 
 go 1.19
 

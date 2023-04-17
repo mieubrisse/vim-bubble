@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mieubrisse/vim-textarea-testing/vim"
+	"github.com/mieubrisse/vim-bubble/vim"
 	"os"
 )
 
