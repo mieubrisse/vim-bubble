@@ -2,10 +2,11 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mieubrisse/vim-textarea-testing/vim_textarea"
 )
 
 type appModel struct {
-	area VimTextAreaModel
+	area vim_textarea.VimTextAreaModel
 }
 
 func (model appModel) Init() tea.Cmd {

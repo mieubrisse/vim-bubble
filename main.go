@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mieubrisse/vim-textarea-testing/vim_textarea"
 	"os"
 )
 
 func main() {
-	area := NewVimTextArea()
+	area := vim_textarea.NewVimTextArea()
 	area.Focus()
 
 	model := appModel{

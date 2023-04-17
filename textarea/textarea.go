@@ -1,4 +1,4 @@
-package main
+package textarea
 
 import (
 	"fmt"
@@ -322,6 +322,14 @@ func (m *Model) SetRow(targetRow int) {
 			m.CursorUp(true)
 		}
 	}
+}
+
+func (m *Model) RowStart() {
+	m.SetRow(0)
+}
+
+func (m *Model) RowEnd() {
+	m.SetRow(len(m.value) - 1)
 }
 
 // Focused returns the focus state on the model.

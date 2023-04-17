@@ -1,8 +1,9 @@
-package main
+package vim_textarea
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mieubrisse/vim-textarea-testing/textarea"
 	"strings"
 )
 
@@ -36,7 +37,7 @@ type VimTextAreaModel struct {
 
 	isFocused bool
 
-	area Model
+	area textarea.Model
 
 	// Buffer for storing N-graphs (e.g. digraphs, trigraphs, etc.)
 	// TODO is this actually called an ngraph?
@@ -50,7 +51,7 @@ type VimTextAreaModel struct {
 
 // TODO rename
 func NewVimTextArea() VimTextAreaModel {
-	area := New()
+	area := textarea.New()
 	area.Prompt = ""
 	// TODO remove this
 	area.SetValue("four score and seven years ago our founding fathers did a really cool thing that's really long\n\nthis is a thing")
@@ -169,7 +170,7 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 					model.nGraphBuffer = ""
 				}
 			case "G":
-				model.area.SetRow(len(model.area.value) - 1)
+				model.area.RowEnd()
 			case "D":
 				model.area.DeleteAfterCursor()
 			case "C":
@@ -295,6 +296,10 @@ func (model VimTextAreaModel) renderStatusBar() string {
 	return modePanelStr + padStr + ngraphPanelStr
 }
 
+// ====================================================================================================
+//                                   Private Helper Functions
+// ====================================================================================================
+
 // Takes the given string, centers it, truncating as needed, and adds padds if the desired size is bigger than
 // the string itself
 // If shouldTruncateWithFirstChars is set, truncating of the string will use the first N characters; if not, the last N
@@ -311,4 +316,25 @@ func coerceToWidth(input string, totalLength int, shouldTruncateWithFirstChars b
 		Width(totalLength).
 		Align(lipgloss.Center).
 		Render(truncatedStr)
+}
+
+func clamp(v, low, high int) int {
+	if high < low {
+		low, high = high, low
+	}
+	return min(high, max(low, v))
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
