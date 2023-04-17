@@ -107,6 +107,17 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				model.nGraphBuffer = ""
 				model.area.CharacterRight(false)
 				model.mode = InsertMode
+			case "A":
+				model.area.CursorEnd(false)
+				model.mode = InsertMode
+			case "i":
+				// TODO handle movement commands with numbers
+				model.nGraphBuffer = ""
+				model.mode = InsertMode
+				break
+			case "I":
+				model.area.CursorStart()
+				model.mode = InsertMode
 			case "h":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
@@ -143,11 +154,6 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 				// I thiiink this is right??
 				model.nGraphBuffer = ""
-			case "i":
-				// TODO handle movement commands with numbers
-				model.nGraphBuffer = ""
-				model.mode = InsertMode
-				break
 			case "^":
 				switch model.nGraphBuffer {
 				case "d":
