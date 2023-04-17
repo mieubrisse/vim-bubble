@@ -3,8 +3,6 @@ Vim Bubble
 
 This repository contains a [BubbleTea](https://github.com/charmbracelet/bubbletea) [Bubble](https://github.com/charmbracelet/bubbles) that emulates some common Vim functionality inside of the BubbleTea framework. It is built on a heavily-modified fork of Charm's [textarea Bubble](https://github.com/charmbracelet/bubbles#text-area).
 
-<div style="position: relative; padding-bottom: 64.63195691202873%; height: 0;"><iframe src="https://www.loom.com/embed/40b389a2e694408aa2b74d1f9b02d1dc" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
-
 How to use
 ----------
 ```bash
