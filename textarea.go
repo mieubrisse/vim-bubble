@@ -408,7 +408,7 @@ func (m *Model) WordStartRight() {
 }
 
 func (m *Model) InsertLineAbove() {
-	newValue := make([][]rune, 0, len(m.value)+1)
+	newValue := make([][]rune, 0, maxHeight)
 
 	preCursorLines := m.value[0:m.row]
 	newValue = append(newValue, preCursorLines...)
@@ -423,8 +423,7 @@ func (m *Model) InsertLineAbove() {
 }
 
 func (m *Model) InsertLineBelow() {
-	// TODO maybe a 'max' of the capacity?
-	newValue := make([][]rune, 0, len(m.value)+1)
+	newValue := make([][]rune, 0, maxHeight)
 
 	cursorLineAndPrevious := m.value[0 : m.row+1]
 	newValue = append(newValue, cursorLineAndPrevious...)
@@ -435,6 +434,33 @@ func (m *Model) InsertLineBelow() {
 	newValue = append(newValue, postCursorLines...)
 
 	m.value = newValue
+}
+
+func (m *Model) DeleteLine() {
+	if len(m.value) <= 1 {
+		m.value = make([][]rune, minHeight, maxHeight)
+		m.SetCursor(0)
+		return
+	}
+
+	preCursorLines := m.value[:m.row]
+	postCursorLines := make([][]rune, 0)
+	if m.row < len(m.value)-1 {
+		postCursorLines = m.value[m.row+1:]
+	}
+
+	newValue := make([][]rune, 0, maxHeight)
+	newValue = append(newValue, preCursorLines...)
+	newValue = append(newValue, postCursorLines...)
+
+	m.value = newValue
+
+	m.row = clamp(m.row, 0, len(m.value)-1)
+}
+
+func (m *Model) ClearLine() {
+	m.value[m.row] = make([]rune, 0, maxWidth)
+	m.SetCursor(0)
 }
 
 // LineInfo returns the number of characters from the start of the
