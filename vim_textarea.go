@@ -9,15 +9,17 @@ import (
 type VimTextAreaMode string
 
 const (
-	NormalMode VimTextAreaMode = "NORMAL"
-	InsertMode VimTextAreaMode = "INSERT"
+	NormalMode  VimTextAreaMode = "NORMAL"
+	InsertMode  VimTextAreaMode = "INSERT"
+	CommandMode VimTextAreaMode = "COMMAND"
 )
 
 const (
 	shouldBindToLineWhenMovingRight = true
 
-	normalModeColorHex = "#defa51"
-	insertModeColorHex = "#61d4fa"
+	normalModeColorHex  = "#defa51"
+	insertModeColorHex  = "#61d4fa"
+	commandModeColorHex = "#61d43f"
 
 	maxNgraphPanelCharacters  = 5
 	desiredNgraphPanelPadding = 1
@@ -37,6 +39,7 @@ type VimTextAreaModel struct {
 	area Model
 
 	// Buffer for storing N-graphs (e.g. digraphs, trigraphs, etc.)
+	// TODO is this actually called an ngraph?
 	nGraphBuffer string
 
 	// TODO something about the written vs unwritten buffer
@@ -48,6 +51,7 @@ type VimTextAreaModel struct {
 // TODO rename
 func NewVimTextArea() VimTextAreaModel {
 	area := New()
+	area.Prompt = ""
 	// TODO remove this
 	area.SetValue("four score and seven years ago our founding fathers did a really cool thing that's really long\n\nthis is a thing")
 	area.CursorEnd(true) // This is a bit of a hack; SetValue should really do this right
@@ -63,7 +67,6 @@ func (model VimTextAreaModel) Init() tea.Cmd {
 }
 
 func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
-	// TODO handle focus/blur logic here?
 	var resultCmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -110,18 +113,24 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
 				model.area.CharacterRight(shouldBindToLineWhenMovingRight)
-			case "b":
+			case "b", "B":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
 				model.area.WordStartLeft()
-			case "w":
+			case "w", "W":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
 				model.area.WordStartRight()
-			case "e":
-				// TODO handle movement commands with numbers
+			case "e", "E":
+				// TODO handle repeats
+				switch model.nGraphBuffer {
+				case "":
+					model.area.WordEndRight()
+				case "g":
+					model.area.WordEndLeft()
+				}
+				// I thiiink this is right??
 				model.nGraphBuffer = ""
-				model.area.WordEndRight()
 			case "i":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
@@ -148,6 +157,19 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				default:
 					model.area.CursorEnd(true)
 				}
+			case "g":
+				switch model.nGraphBuffer {
+				case "":
+					model.nGraphBuffer = msg.String()
+				case "g":
+					model.area.SetRow(0)
+					model.nGraphBuffer = ""
+				default:
+					// TODO is this right?
+					model.nGraphBuffer = ""
+				}
+			case "G":
+				model.area.SetRow(len(model.area.value) - 1)
 			case "D":
 				model.area.DeleteAfterCursor()
 			case "C":
@@ -189,17 +211,12 @@ func (model VimTextAreaModel) Update(msg tea.Msg) (VimTextAreaModel, tea.Cmd) {
 				} else {
 					model.nGraphBuffer += msg.String()
 				}
-			case "1":
-			case "2":
-			case "3":
-			case "4":
-			case "5":
-			case "6":
-			case "7":
-			case "8":
-			case "9":
+			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 				model.nGraphBuffer += msg.String()
+			case "/":
+				model.Blur()
 			}
+			// TODO 't', 'f', ';', and ','
 		}
 	}
 	return model, tea.Batch(resultCmds...)
@@ -261,6 +278,8 @@ func (model VimTextAreaModel) renderStatusBar() string {
 	switch model.mode {
 	case InsertMode:
 		modePanelColorHex = insertModeColorHex
+	case CommandMode:
+		modePanelColorHex = commandModeColorHex
 	default:
 		modePanelColorHex = normalModeColorHex
 	}

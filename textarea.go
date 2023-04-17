@@ -23,6 +23,8 @@ const (
 	defaultCharLimit = 400
 	maxHeight        = 99
 	maxWidth         = 500
+
+	lineNumberColorHex = "#5d5d5d"
 )
 
 // Internal messages for clipboard operations.
@@ -307,6 +309,21 @@ func (m *Model) CursorEnd(bindToLine bool) {
 	m.SetCursor(newPosition)
 }
 
+func (m *Model) SetRow(targetRow int) {
+	targetRow = clamp(targetRow, 0, len(m.value)-1)
+
+	adjustmentNeeded := targetRow - m.row
+	if adjustmentNeeded > 0 {
+		for i := 0; i < adjustmentNeeded; i++ {
+			m.CursorDown(true)
+		}
+	} else {
+		for i := 0; i > adjustmentNeeded; i-- {
+			m.CursorUp(true)
+		}
+	}
+}
+
 // Focused returns the focus state on the model.
 func (m Model) Focused() bool {
 	return m.focus
@@ -394,6 +411,10 @@ func (m *Model) CharacterLeft(insideLine bool) {
 // so as not to reveal word breaks in the masked input.
 func (m *Model) WordStartLeft() {
 	m.doWordwiseMovement(false, false)
+}
+
+func (m *Model) WordEndLeft() {
+	m.doWordwiseMovement(false, true)
 }
 
 func (m *Model) WordEndRight() {
