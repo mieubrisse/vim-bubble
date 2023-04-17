@@ -307,6 +307,10 @@ func (model *Model) SetValue(str string) {
 	model.area.SetValue(str)
 }
 
+func (model *Model) GetValue() string {
+	return model.area.Value()
+}
+
 // ====================================================================================================
 //
 //	Private Helper Functions
