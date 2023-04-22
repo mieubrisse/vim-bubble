@@ -325,6 +325,11 @@ func (model *Model) GetValue() string {
 	return model.area.Value()
 }
 
+func (model Model) SetMode(mode Mode) Model {
+	model.mode = mode
+	return model
+}
+
 func (model Model) GetMode() Mode {
 	return model.mode
 }
