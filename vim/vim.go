@@ -325,6 +325,10 @@ func (model *Model) GetValue() string {
 	return model.area.Value()
 }
 
+func (model Model) GetMode() Mode {
+	return model.mode
+}
+
 // ====================================================================================================
 //
 //	Private Helper Functions
