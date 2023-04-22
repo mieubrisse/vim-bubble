@@ -10,17 +10,12 @@ import (
 type Mode string
 
 const (
-	NormalMode  Mode = "NORMAL"
-	InsertMode  Mode = "INSERT"
-	CommandMode Mode = "COMMAND"
+	NormalMode Mode = "NORMAL"
+	InsertMode Mode = "INSERT"
 )
 
 const (
 	shouldBindToLineWhenMovingRight = true
-
-	normalModeColorHex  = "#defa51"
-	insertModeColorHex  = "#61d4fa"
-	commandModeColorHex = "#61d43f"
 
 	maxNgraphPanelCharacters  = 5
 	desiredNgraphPanelPadding = 1
@@ -33,7 +28,23 @@ const (
 	numHistoryStepsToKeep = 20
 )
 
+var defaultNormalModeLabelStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("#defa51")).
+	Foreground(lipgloss.Color("#000000"))
+
+var defaultInsertModeLabelStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("#61d4fa")).
+	Foreground(lipgloss.Color("#000000"))
+
+var unknownModeLabelStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("#FFFFFF")).
+	Foreground(lipgloss.Color("#000000"))
+
 type Model struct {
+	NormalModeLabelStyle lipgloss.Style
+
+	InsertModeLabelStyle lipgloss.Style
+
 	mode Mode
 
 	isFocused bool
@@ -65,10 +76,17 @@ func New() Model {
 	area.SetValue("")
 	area.Prompt = ""
 	return Model{
-		mode:        NormalMode,
-		isFocused:   false,
-		area:        area,
-		undoHistory: []string{""},
+		NormalModeLabelStyle: defaultNormalModeLabelStyle,
+		InsertModeLabelStyle: defaultInsertModeLabelStyle,
+		mode:                 NormalMode,
+		isFocused:            false,
+		area:                 area,
+		nGraphBuffer:         "",
+		undoHistory:          []string{""},
+		historyPointer:       0,
+		commaRegister:        "",
+		width:                0,
+		height:               0,
 	}
 }
 
@@ -376,20 +394,17 @@ func (model Model) renderStatusBar() string {
 	padStr := strings.Repeat(" ", numPads)
 
 	// TODO get rid of magic consts
-	var modePanelColorHex string
+	var modePanelStyle lipgloss.Style
 	switch model.mode {
 	case InsertMode:
-		modePanelColorHex = insertModeColorHex
-	case CommandMode:
-		modePanelColorHex = commandModeColorHex
+		modePanelStyle = model.InsertModeLabelStyle
+	case NormalMode:
+		modePanelStyle = model.NormalModeLabelStyle
 	default:
-		modePanelColorHex = normalModeColorHex
+		modePanelStyle = unknownModeLabelStyle
 	}
 	modePanelStr := coerceToWidth(string(model.mode), modePanelSize, true)
-	modePanelStr = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#000000")).
-		Background(lipgloss.Color(modePanelColorHex)).
-		Render(modePanelStr)
+	modePanelStr = modePanelStyle.Render(modePanelStr)
 
 	// TODO get rid of magic consts
 	ngraphPanelStr := coerceToWidth(model.nGraphBuffer, ngraphPanelSize, false)
