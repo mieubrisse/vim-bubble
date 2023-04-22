@@ -354,7 +354,14 @@ func (model Model) GetMode() Mode {
 
 func (model Model) GetCursorRow() int {
 	return model.area.GetRow()
+}
 
+// TODO this is a nasty hack, that I'm exposing purely to allow for tab completion in the app that needs this
+// TODO the ideal would be some standard way to programmatically manipulate the Vim buffer
+func (model Model) ReplaceLine(newContents string) Model {
+	model.area.ClearLine()
+	model.area.InsertString(newContents)
+	return model
 }
 
 // ====================================================================================================
