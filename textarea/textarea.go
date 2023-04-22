@@ -244,6 +244,8 @@ func (m *Model) CursorDown(bindToLine bool) {
 		offset += rw.RuneWidth(m.value[m.row][m.col])
 		m.col++
 	}
+
+	m.repositionView()
 }
 
 // CursorUp moves the cursor up by one line.
@@ -284,6 +286,8 @@ func (m *Model) CursorUp(bindToLine bool) {
 		offset += rw.RuneWidth(m.value[m.row][m.col])
 		m.col++
 	}
+
+	m.repositionView()
 }
 
 // SetCursor moves the cursor to the given position. If the position is
@@ -323,6 +327,8 @@ func (m *Model) SetRow(targetRow int) {
 			m.CursorUp(true)
 		}
 	}
+
+	m.repositionView()
 }
 
 func (m *Model) RowStart() {
