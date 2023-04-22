@@ -173,7 +173,7 @@ func (m Model) GetValue() string {
 func (m *Model) SetValue(s string) {
 	m.Reset()
 	m.InsertString(s)
-	m.MoveCursorLeftOneRune(true)
+	m.MoveCursorLeftOneRune()
 }
 
 // InsertString inserts a string at the cursor position.
@@ -698,7 +698,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.KeyMap.Paste):
 			return m, Paste
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
-			m.MoveCursorLeftOneRune(false /* insideLine */)
+			m.MoveCursorLeftOneRune()
 		case key.Matches(msg, m.KeyMap.LinePrevious):
 			// If the user is using the arrow keys, we don't want to be binding to the end of the line because they're
 			// almost definitely in insert mode

@@ -103,7 +103,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case InsertMode:
 			if msg.String() == "esc" {
 				model.mode = NormalMode
-				model.area.MoveCursorLeftOneRune(true)
+				model.area.MoveCursorLeftOneRune()
 
 				model.saveHistory()
 
@@ -139,7 +139,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			case "h":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.MoveCursorLeftOneRune(true)
+				model.area.MoveCursorLeftOneRune()
 			case "j":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
@@ -285,7 +285,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				// TODO make this a better thing in the textarea class - it's a kind of hacky way to implement the "paste AFTER cursor location" logic of Vim
 				model.area.MoveCursorRightOneRune(false)
 				model.area.InsertString(model.commaRegister)
-				model.area.MoveCursorLeftOneRune(false)
+				model.area.MoveCursorLeftOneRune()
 			}
 			// TODO 't', 'f', ';', and ','
 		}
@@ -352,8 +352,8 @@ func (model Model) GetMode() Mode {
 	return model.mode
 }
 
-func (model Model) GetCursorRow() mode {
-	return model.area.ro
+func (model Model) GetCursorRow() int {
+	return model.area.GetRow()
 
 }
 
