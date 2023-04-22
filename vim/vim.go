@@ -20,30 +20,30 @@ const (
 	maxNgraphPanelCharacters  = 5
 	desiredNgraphPanelPadding = 1
 
-	minModePanelCharacters = 1
+	minModePlacardCharacters = 1
 	// TODO Make this dynamic by looking at the length of the mode strings!
-	maxModePanelCharacters  = 6
-	desiredModePanelPadding = 1
+	maxModePlacardCharacters  = 6
+	desiredModePlacardPadding = 1
 
 	numHistoryStepsToKeep = 20
 )
 
-var defaultNormalModeLabelStyle = lipgloss.NewStyle().
+var defaultNormalModePlacardStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#defa51")).
 	Foreground(lipgloss.Color("#000000"))
 
-var defaultInsertModeLabelStyle = lipgloss.NewStyle().
+var defaultInsertModePlacardStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#61d4fa")).
 	Foreground(lipgloss.Color("#000000"))
 
-var unknownModeLabelStyle = lipgloss.NewStyle().
+var unknownModePlacardStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#FFFFFF")).
 	Foreground(lipgloss.Color("#000000"))
 
 type Model struct {
-	NormalModeLabelStyle lipgloss.Style
+	NormalModePlacardStyle lipgloss.Style
 
-	InsertModeLabelStyle lipgloss.Style
+	InsertModePlacardStyle lipgloss.Style
 
 	mode Mode
 
@@ -76,17 +76,17 @@ func New() Model {
 	area.SetValue("")
 	area.Prompt = ""
 	return Model{
-		NormalModeLabelStyle: defaultNormalModeLabelStyle,
-		InsertModeLabelStyle: defaultInsertModeLabelStyle,
-		mode:                 NormalMode,
-		isFocused:            false,
-		area:                 area,
-		nGraphBuffer:         "",
-		undoHistory:          []string{""},
-		historyPointer:       0,
-		commaRegister:        "",
-		width:                0,
-		height:               0,
+		NormalModePlacardStyle: defaultNormalModePlacardStyle,
+		InsertModePlacardStyle: defaultInsertModePlacardStyle,
+		mode:                   NormalMode,
+		isFocused:              false,
+		area:                   area,
+		nGraphBuffer:           "",
+		undoHistory:            []string{""},
+		historyPointer:         0,
+		commaRegister:          "",
+		width:                  0,
+		height:                 0,
 	}
 }
 
@@ -383,33 +383,32 @@ func (model Model) renderStatusBar() string {
 
 	// First calculate the ngraph panel size, leaving room for at least one char of mode panel
 	// This means the digraph panel will be the first to get space when the window expands, up to its limit
-	ngraphPanelSize := clamp(model.width-minModePanelCharacters, 0, maxNgraphPanelCharacters+2*desiredNgraphPanelPadding)
+	ngraphPanelSize := clamp(model.width-minModePlacardCharacters, 0, maxNgraphPanelCharacters+2*desiredNgraphPanelPadding)
 
-	// Next calculate the mode panel size, up to its max
-	// This means the mode panel will get extra space second
-	modePanelSize := clamp(model.width-ngraphPanelSize, minModePanelCharacters, maxModePanelCharacters+2*desiredModePanelPadding)
+	// Next calculate the mode placard size, up to its max
+	// This means the mode placard will get extra space second
+	modePlacardSize := clamp(model.width-ngraphPanelSize, minModePlacardCharacters, maxModePlacardCharacters+2*desiredModePlacardPadding)
 
 	// Finally, pad any extra space
-	numPads := max(0, model.width-modePanelSize-ngraphPanelSize)
+	numPads := max(0, model.width-modePlacardSize-ngraphPanelSize)
 	padStr := strings.Repeat(" ", numPads)
 
-	// TODO get rid of magic consts
-	var modePanelStyle lipgloss.Style
+	var modePlacardStyle lipgloss.Style
 	switch model.mode {
 	case InsertMode:
-		modePanelStyle = model.InsertModeLabelStyle
+		modePlacardStyle = model.InsertModePlacardStyle
 	case NormalMode:
-		modePanelStyle = model.NormalModeLabelStyle
+		modePlacardStyle = model.NormalModePlacardStyle
 	default:
-		modePanelStyle = unknownModeLabelStyle
+		modePlacardStyle = unknownModePlacardStyle
 	}
-	modePanelStr := coerceToWidth(string(model.mode), modePanelSize, true)
-	modePanelStr = modePanelStyle.Render(modePanelStr)
+	modePlacardStr := coerceToWidth(string(model.mode), modePlacardSize, true)
+	modePlacardStr = modePlacardStyle.Render(modePlacardStr)
 
 	// TODO get rid of magic consts
 	ngraphPanelStr := coerceToWidth(model.nGraphBuffer, ngraphPanelSize, false)
 
-	return modePanelStr + padStr + ngraphPanelStr
+	return modePlacardStr + padStr + ngraphPanelStr
 }
 
 // Takes the given string, centers it, truncating as needed, and adds padds if the desired size is bigger than
