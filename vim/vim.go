@@ -103,7 +103,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case InsertMode:
 			if msg.String() == "esc" {
 				model.mode = NormalMode
-				model.area.CharacterLeft(true)
+				model.area.MoveCursorLeftOneRune(true)
 
 				model.saveHistory()
 
@@ -123,10 +123,10 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			case "a":
 				// This is a deviation from Vim, but I'm fine with it
 				model.nGraphBuffer = ""
-				model.area.CharacterRight(false)
+				model.area.MoveCursorRightOneRune(false)
 				model.mode = InsertMode
 			case "A":
-				model.area.CursorEnd(false)
+				model.area.MoveCursorToLineEnd(false)
 				model.mode = InsertMode
 			case "i":
 				// TODO handle movement commands with numbers
@@ -134,41 +134,41 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				model.mode = InsertMode
 				break
 			case "I":
-				model.area.CursorStart()
+				model.area.MoveCursorToLineStart()
 				model.mode = InsertMode
 			case "h":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.CharacterLeft(true)
+				model.area.MoveCursorLeftOneRune(true)
 			case "j":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
 				// We want line-binding because we're in normal mode, so we shouldn't have the cursor beyond the end of the line
-				model.area.CursorDown(true)
+				model.area.MoveCursorDown(true)
 			case "k":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
 				// We want line-binding because we're in normal mode, so we shouldn't have the cursor beyond the end of the line
-				model.area.CursorUp(true)
+				model.area.MoveCursorUp(true)
 			case "l":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.CharacterRight(shouldBindToLineWhenMovingRight)
+				model.area.MoveCursorRightOneRune(shouldBindToLineWhenMovingRight)
 			case "b", "B":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.WordStartLeft()
+				model.area.MoveCursorToWordStartLeft()
 			case "w", "W":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.WordStartRight()
+				model.area.MoveCursorToWordStartRight()
 			case "e", "E":
 				// TODO handle repeats
 				switch model.nGraphBuffer {
 				case "":
-					model.area.WordEndRight()
+					model.area.MoveCursorToWordEndRight()
 				case "g":
-					model.area.WordEndLeft()
+					model.area.MoveCursorToWordEndLeft()
 				}
 				// I thiiink this is right??
 				model.nGraphBuffer = ""
@@ -186,7 +186,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					// TODO extract this into something better!
 					model.saveHistory()
 				default:
-					model.area.CursorStart()
+					model.area.MoveCursorToLineStart()
 				}
 			case "$":
 				switch model.nGraphBuffer {
@@ -197,40 +197,40 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					model.saveHistory()
 				case "c":
 					model.area.DeleteAfterCursor()
-					model.area.CharacterRight(false)
+					model.area.MoveCursorRightOneRune(false)
 					model.mode = InsertMode
 					model.nGraphBuffer = ""
 				default:
-					model.area.CursorEnd(true)
+					model.area.MoveCursorToLineEnd(true)
 				}
 			case "g":
 				switch model.nGraphBuffer {
 				case "":
 					model.nGraphBuffer = msg.String()
 				case "g":
-					model.area.SetRow(0)
+					model.area.SetCursorRow(0)
 					model.nGraphBuffer = ""
 				default:
 					// TODO is this right?
 					model.nGraphBuffer = ""
 				}
 			case "G":
-				model.area.RowEnd()
+				model.area.MoveCursorToLastRow()
 			case "D":
 				model.area.DeleteAfterCursor()
 				// TODO extract this into something better!
 				model.saveHistory()
 			case "C":
 				model.area.DeleteAfterCursor()
-				model.area.CharacterRight(false)
+				model.area.MoveCursorRightOneRune(false)
 				model.mode = InsertMode
 			case "o":
 				model.area.InsertLineBelow()
-				model.area.CursorDown(true)
+				model.area.MoveCursorDown(true)
 				model.mode = InsertMode
 			case "O":
 				model.area.InsertLineAbove()
-				model.area.CursorUp(true)
+				model.area.MoveCursorUp(true)
 				model.mode = InsertMode
 			case "d":
 				switch model.nGraphBuffer {
@@ -257,7 +257,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			case "0":
 				if model.nGraphBuffer == "" {
-					model.area.CursorStart()
+					model.area.MoveCursorToLineStart()
 				} else {
 					model.nGraphBuffer += msg.String()
 				}
@@ -283,9 +283,9 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				model.saveHistory()
 			case "p":
 				// TODO make this a better thing in the textarea class - it's a kind of hacky way to implement the "paste AFTER cursor location" logic of Vim
-				model.area.CharacterRight(false)
+				model.area.MoveCursorRightOneRune(false)
 				model.area.InsertString(model.commaRegister)
-				model.area.CharacterLeft(false)
+				model.area.MoveCursorLeftOneRune(false)
 			}
 			// TODO 't', 'f', ';', and ','
 		}
@@ -340,7 +340,7 @@ func (model *Model) SetValue(str string) {
 }
 
 func (model *Model) GetValue() string {
-	return model.area.Value()
+	return model.area.GetValue()
 }
 
 func (model Model) SetMode(mode Mode) Model {
@@ -352,6 +352,11 @@ func (model Model) GetMode() Mode {
 	return model.mode
 }
 
+func (model Model) GetCursorRow() mode {
+	return model.area.ro
+
+}
+
 // ====================================================================================================
 //
 //	Private Helper Functions
@@ -359,12 +364,12 @@ func (model Model) GetMode() Mode {
 // ====================================================================================================
 func (model *Model) saveHistory() {
 	// TODO don't save a history step if nothing new was written
-	if model.area.Value() != model.undoHistory[len(model.undoHistory)-1] {
+	if model.area.GetValue() != model.undoHistory[len(model.undoHistory)-1] {
 		// If the user has rewound, then we discard things they've rewound past
 		preservedHistory := model.undoHistory[:model.historyPointer+1]
 		newHistory := append(
 			preservedHistory,
-			model.area.Value(),
+			model.area.GetValue(),
 		)
 
 		// Now discard down to the appropriate number of history steps

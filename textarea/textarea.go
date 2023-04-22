@@ -154,25 +154,8 @@ func New() Model {
 	return m
 }
 
-// SetValue sets the value of the text input.
-func (m *Model) SetValue(s string) {
-	m.Reset()
-	m.InsertString(s)
-	m.CharacterLeft(true)
-}
-
-// InsertString inserts a string at the cursor position.
-func (m *Model) InsertString(s string) {
-	m.insertRunesFromUserInput([]rune(s))
-}
-
-// InsertRune inserts a rune at the cursor position.
-func (m *Model) InsertRune(r rune) {
-	m.insertRunesFromUserInput([]rune{r})
-}
-
-// Value returns the value of the text input.
-func (m Model) Value() string {
+// GetValue returns the value of the text input.
+func (m Model) GetValue() string {
 	if m.value == nil {
 		return ""
 	}
@@ -186,8 +169,25 @@ func (m Model) Value() string {
 	return strings.TrimSuffix(v.String(), "\n")
 }
 
-// Length returns the number of characters currently in the text input.
-func (m *Model) Length() int {
+// SetValue sets the value of the text input.
+func (m *Model) SetValue(s string) {
+	m.Reset()
+	m.InsertString(s)
+	m.MoveCursorLeftOneRune(true)
+}
+
+// InsertString inserts a string at the cursor position.
+func (m *Model) InsertString(s string) {
+	m.insertRunesFromUserInput([]rune(s))
+}
+
+// InsertRune inserts a rune at the cursor position.
+func (m *Model) InsertRune(r rune) {
+	m.insertRunesFromUserInput([]rune{r})
+}
+
+// GetLength returns the number of characters currently in the text input.
+func (m *Model) GetLength() int {
 	var l int
 	for _, row := range m.value {
 		l += rw.StringWidth(string(row))
@@ -196,20 +196,15 @@ func (m *Model) Length() int {
 	return l + len(m.value) - 1
 }
 
-// LineCount returns the number of lines that are currently in the text input.
-func (m *Model) LineCount() int {
+// GetNumRows returns the number of lines that are currently in the text input.
+func (m *Model) GetNumRows() int {
 	return len(m.value)
 }
 
-// Line returns the line position.
-func (m Model) Line() int {
-	return m.row
-}
-
-// CursorDown moves the cursor down by one line.
+// MoveCursorDown moves the cursor down by one line.
 // Returns whether or not the cursor blink should be reset.
-func (m *Model) CursorDown(bindToLine bool) {
-	li := m.LineInfo()
+func (m *Model) MoveCursorDown(bindToLine bool) {
+	li := m.GetLineInfo()
 	charOffset := max(m.lastCharOffset, li.CharOffset)
 	m.lastCharOffset = charOffset
 
@@ -223,7 +218,7 @@ func (m *Model) CursorDown(bindToLine bool) {
 		m.col = min(li.StartColumn+li.Width+2, len(m.value[m.row])-1)
 	}
 
-	nli := m.LineInfo()
+	nli := m.GetLineInfo()
 	m.col = nli.StartColumn
 
 	if nli.Width <= 0 {
@@ -248,10 +243,10 @@ func (m *Model) CursorDown(bindToLine bool) {
 	m.repositionView()
 }
 
-// CursorUp moves the cursor up by one line.
+// MoveCursorUp moves the cursor up by one line.
 // If bindToLine is set, the cursor will not move past the last character of the line
-func (m *Model) CursorUp(bindToLine bool) {
-	li := m.LineInfo()
+func (m *Model) MoveCursorUp(bindToLine bool) {
+	li := m.GetLineInfo()
 	charOffset := max(m.lastCharOffset, li.CharOffset)
 	m.lastCharOffset = charOffset
 
@@ -266,7 +261,7 @@ func (m *Model) CursorUp(bindToLine bool) {
 		m.col = li.StartColumn - 2
 	}
 
-	nli := m.LineInfo()
+	nli := m.GetLineInfo()
 	m.col = nli.StartColumn
 
 	if nli.Width <= 0 {
@@ -290,57 +285,67 @@ func (m *Model) CursorUp(bindToLine bool) {
 	m.repositionView()
 }
 
-// SetCursor moves the cursor to the given position. If the position is
+// GetCursorColumn gets the column within the rune grid where the cursor is currently at
+// Note that the cursor can be beyond the right-hand end of the rune grid!
+func (m Model) GetCursorColumn() int {
+	return m.col
+}
+
+// SetCursorColumn moves the cursor to the given position. If the position is
 // out of bounds the cursor will be moved to the start or end accordingly.
-func (m *Model) SetCursor(col int) {
+func (m *Model) SetCursorColumn(col int) {
 	m.col = clamp(col, 0, len(m.value[m.row]))
 	// Any time that we move the cursor horizontally we need to reset the last
 	// offset so that the horizontal position when navigating is adjusted.
 	m.lastCharOffset = 0
 }
 
-// CursorStart moves the cursor to the start of the input field.
-func (m *Model) CursorStart() {
-	m.SetCursor(0)
+// MoveCursorToLineStart moves the cursor to the start of the input field.
+func (m *Model) MoveCursorToLineStart() {
+	m.SetCursorColumn(0)
 }
 
-// CursorEnd moves the cursor to the end of the input field.
+// MoveCursorToLineEnd moves the cursor to the end of the input field.
 // If bindToLine is set, only allow going to the last char of the line
-func (m *Model) CursorEnd(bindToLine bool) {
+func (m *Model) MoveCursorToLineEnd(bindToLine bool) {
 	newPosition := len(m.value[m.row])
 	if bindToLine {
 		newPosition--
 	}
-	m.SetCursor(newPosition)
+	m.SetCursorColumn(newPosition)
 }
 
-func (m *Model) SetRow(targetRow int) {
+func (m Model) GetRow() int {
+	return m.row
+}
+
+func (m *Model) SetCursorRow(targetRow int) {
 	targetRow = clamp(targetRow, 0, len(m.value)-1)
 
 	adjustmentNeeded := targetRow - m.row
 	if adjustmentNeeded > 0 {
 		for i := 0; i < adjustmentNeeded; i++ {
-			m.CursorDown(true)
+			m.MoveCursorDown(true)
 		}
 	} else {
 		for i := 0; i > adjustmentNeeded; i-- {
-			m.CursorUp(true)
+			m.MoveCursorUp(true)
 		}
 	}
 
 	m.repositionView()
 }
 
-func (m *Model) RowStart() {
-	m.SetRow(0)
+func (m *Model) MoveCursorToFirstRow() {
+	m.SetCursorRow(0)
 }
 
-func (m *Model) RowEnd() {
-	m.SetRow(len(m.value) - 1)
+func (m *Model) MoveCursorToLastRow() {
+	m.SetCursorRow(len(m.value) - 1)
 }
 
-// Focused returns the focus state on the model.
-func (m Model) Focused() bool {
+// IsFocused returns the focus state on the model.
+func (m Model) IsFocused() bool {
 	return m.focus
 }
 
@@ -366,14 +371,14 @@ func (m *Model) Reset() {
 	m.col = 0
 	m.row = 0
 	m.viewport.GotoTop()
-	m.SetCursor(0)
+	m.SetCursorColumn(0)
 }
 
 // DeleteBeforeCursor deletes all text before the cursor. Returns whether or
 // not the cursor blink should be reset.
 func (m *Model) DeleteBeforeCursor() {
 	m.value[m.row] = m.value[m.row][m.col:]
-	m.SetCursor(0)
+	m.SetCursorColumn(0)
 }
 
 // DeleteAfterCursor deletes all text after the cursor. Returns whether or not
@@ -381,7 +386,7 @@ func (m *Model) DeleteBeforeCursor() {
 // the cursor so as not to reveal word breaks in the masked input.
 func (m *Model) DeleteAfterCursor() {
 	m.value[m.row] = m.value[m.row][:m.col]
-	m.SetCursor(len(m.value[m.row]) - 1)
+	m.SetCursorColumn(len(m.value[m.row]) - 1)
 }
 
 // Deletes the single character on the cursor
@@ -401,67 +406,51 @@ func (m *Model) DeleteOnCursor() []rune {
 	m.value[m.row] = newRow
 
 	newCol := min(m.col, len(newRow)-1)
-	m.SetCursor(newCol)
+	m.SetCursorColumn(newCol)
 
 	return deletedChar
 }
 
-// CharacterRight moves the cursor one character to the right.
+// MoveCursorRightOneRune moves the cursor one character to the right.
 // If bindToLine is set, the cursor will not move psat the last character of the line
-func (m *Model) CharacterRight(bindToLine bool) {
+func (m *Model) MoveCursorRightOneRune(bindToLine bool) {
 	moveRightLimit := len(m.value[m.row])
 	if bindToLine {
 		moveRightLimit--
 	}
 	if m.col < moveRightLimit {
-		m.SetCursor(m.col + 1)
-	} /* else {
-		if m.row < len(m.value)-1 {
-			m.row++
-			m.CursorStart()
-		}
+		m.SetCursorColumn(m.col + 1)
 	}
-	*/
 }
 
-// CharacterLeft moves the cursor one character to the left.
+// MoveCursorLeftOneRune moves the cursor one character to the left.
 // If insideLine is set, the cursor is moved to the last
 // character in the previous line, instead of one past that.
-func (m *Model) CharacterLeft(insideLine bool) {
-	// TODO remove this
-	/*
-		if m.col == 0 && m.row != 0 {
-			m.row--
-			m.CursorEnd()
-			if !insideLine {
-				return
-			}
-		}
-	*/
+func (m *Model) MoveCursorLeftOneRune() {
 	if m.col > 0 {
-		m.SetCursor(m.col - 1)
+		m.SetCursorColumn(m.col - 1)
 	}
 }
 
-// WordStartLeft moves the cursor one word to the left. Returns whether or not the
+// MoveCursorToWordStartLeft moves the cursor one word to the left. Returns whether or not the
 // cursor blink should be reset. If input is masked, move input to the start
 // so as not to reveal word breaks in the masked input.
-func (m *Model) WordStartLeft() {
+func (m *Model) MoveCursorToWordStartLeft() {
 	m.doWordwiseMovement(false, false)
 }
 
-func (m *Model) WordEndLeft() {
+func (m *Model) MoveCursorToWordEndLeft() {
 	m.doWordwiseMovement(false, true)
 }
 
-func (m *Model) WordEndRight() {
+func (m *Model) MoveCursorToWordEndRight() {
 	m.doWordwiseMovement(true, false)
 }
 
-// WordStartRight moves the cursor one word to the right. Returns whether or not the
+// MoveCursorToWordStartRight moves the cursor one word to the right. Returns whether or not the
 // cursor blink should be reset. If the input is masked, move input to the end
 // so as not to reveal word breaks in the masked input.
-func (m *Model) WordStartRight() {
+func (m *Model) MoveCursorToWordStartRight() {
 	m.doWordwiseMovement(true, true)
 }
 
@@ -497,7 +486,7 @@ func (m *Model) InsertLineBelow() {
 func (m *Model) DeleteLine() {
 	if len(m.value) <= 1 {
 		m.value = make([][]rune, minHeight, maxHeight)
-		m.SetCursor(0)
+		m.SetCursorColumn(0)
 		return
 	}
 
@@ -518,12 +507,12 @@ func (m *Model) DeleteLine() {
 
 func (m *Model) ClearLine() {
 	m.value[m.row] = make([]rune, 0, maxWidth)
-	m.SetCursor(0)
+	m.SetCursorColumn(0)
 }
 
 // LineInfo returns the number of characters from the start of the
 // (soft-wrapped) line and the (soft-wrapped) line width.
-func (m Model) LineInfo() LineInfo {
+func (m Model) GetLineInfo() LineInfo {
 	grid := wrap(m.value[m.row], m.width)
 
 	// Find out which line we are currently on. This can be determined by the
@@ -590,8 +579,8 @@ func (m *Model) SetWidth(w int) {
 	m.width = clamp(inputWidth, minWidth, maxWidth)
 }
 
-// Width returns the width of the textarea.
-func (m Model) Width() int {
+// GetWidth returns the width of the textarea.
+func (m Model) GetWidth() int {
 	return m.width
 }
 
@@ -607,8 +596,8 @@ func (m *Model) SetPromptFunc(promptWidth int, fn func(lineIdx int) string) {
 	m.promptWidth = promptWidth
 }
 
-// Height returns the current height of the textarea.
-func (m Model) Height() int {
+// GetHeight returns the current height of the textarea.
+func (m Model) GetHeight() int {
 	return m.height
 }
 
@@ -662,7 +651,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if len(m.value[m.row]) > 0 {
 				m.value[m.row] = append(m.value[m.row][:max(0, m.col-1)], m.value[m.row][m.col:]...)
 				if m.col > 0 {
-					m.SetCursor(m.col - 1)
+					m.SetCursorColumn(m.col - 1)
 				}
 			}
 		case key.Matches(msg, m.KeyMap.DeleteCharacterForward):
@@ -694,28 +683,28 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.splitLine(m.row, m.col)
 		case key.Matches(msg, m.KeyMap.LineEnd):
 			// If the user is going to the end of the line, do allow them to go off the end of the line
-			m.CursorEnd(false)
+			m.MoveCursorToLineEnd(false)
 		case key.Matches(msg, m.KeyMap.LineStart):
-			m.CursorStart()
+			m.MoveCursorToLineStart()
 		case key.Matches(msg, m.KeyMap.CharacterForward):
 			// When we're editing normally, we DO want to allow moving off the end of the line
-			m.CharacterRight(false)
+			m.MoveCursorRightOneRune(false)
 		case key.Matches(msg, m.KeyMap.LineNext):
 			// If the user is using the arrow keys, we don't want to be binding to the end of the line because they're
 			// almost definitely in insert mode
-			m.CursorDown(false)
+			m.MoveCursorDown(false)
 		case key.Matches(msg, m.KeyMap.WordForward):
-			m.WordStartRight()
+			m.MoveCursorToWordStartRight()
 		case key.Matches(msg, m.KeyMap.Paste):
 			return m, Paste
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
-			m.CharacterLeft(false /* insideLine */)
+			m.MoveCursorLeftOneRune(false /* insideLine */)
 		case key.Matches(msg, m.KeyMap.LinePrevious):
 			// If the user is using the arrow keys, we don't want to be binding to the end of the line because they're
 			// almost definitely in insert mode
-			m.CursorUp(false)
+			m.MoveCursorUp(false)
 		case key.Matches(msg, m.KeyMap.WordBackward):
-			m.WordStartLeft()
+			m.MoveCursorToWordStartLeft()
 		case key.Matches(msg, m.KeyMap.InputBegin):
 			m.moveToBegin()
 		case key.Matches(msg, m.KeyMap.InputEnd):
@@ -751,14 +740,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 // View renders the text area in its current state.
 func (m Model) View() string {
-	if m.Value() == "" && m.row == 0 && m.col == 0 && m.Placeholder != "" {
+	if m.GetValue() == "" && m.row == 0 && m.col == 0 && m.Placeholder != "" {
 		return m.placeholderView()
 	}
 	m.Cursor.TextStyle = m.style.CursorLine
 
 	var s strings.Builder
 	var style lipgloss.Style
-	lineInfo := m.LineInfo()
+	lineInfo := m.GetLineInfo()
 
 	var newLines int
 
@@ -822,7 +811,7 @@ func (m Model) View() string {
 		}
 	}
 
-	// Always show at least `m.Height` lines at all times.
+	// Always show at least `m.GetHeight` lines at all times.
 	// To do this we can simply pad out a few extra new lines in the view.
 	for i := 0; i < m.height; i++ {
 		prompt := m.getPromptString(displayLine)
@@ -933,7 +922,7 @@ func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		}
 
 		// Now that we know we're moving the column index to a valid line, move it
-		m.SetCursor(nextColIdx)
+		m.SetCursorColumn(nextColIdx)
 		nextColIdx = m.col + directionMultiplier // Prep for next iteration
 
 		// We still might have moved the cursor to an empty line, making the cursor location invalid!
@@ -1000,7 +989,7 @@ func (m *Model) insertRunesFromUserInput(runes []rune) {
 
 	var availSpace int
 	if m.CharLimit > 0 {
-		availSpace = m.CharLimit - m.Length()
+		availSpace = m.CharLimit - m.GetLength()
 		// If the char limit's been reached, cancel.
 		if availSpace <= 0 {
 			return
@@ -1074,7 +1063,7 @@ func (m *Model) insertRunesFromUserInput(runes []rune) {
 	// Finally add the tail at the end of the last line inserted.
 	m.value[m.row] = append(m.value[m.row], tail...)
 
-	m.SetCursor(m.col)
+	m.SetCursorColumn(m.col)
 }
 
 // deleteWordLeft deletes the word left to the cursor. Returns whether or not
@@ -1085,26 +1074,26 @@ func (m *Model) deleteWordLeft() {
 	}
 
 	// Linter note: it's critical that we acquire the initial cursor position
-	// here prior to altering it via SetCursor() below. As such, moving this
+	// here prior to altering it via SetCursorColumn() below. As such, moving this
 	// call into the corresponding if clause does not apply here.
 	oldCol := m.col //nolint:ifshort
 
-	m.SetCursor(m.col - 1)
+	m.SetCursorColumn(m.col - 1)
 	for unicode.IsSpace(m.value[m.row][m.col]) {
 		if m.col <= 0 {
 			break
 		}
 		// ignore series of whitespace before cursor
-		m.SetCursor(m.col - 1)
+		m.SetCursorColumn(m.col - 1)
 	}
 
 	for m.col > 0 {
 		if !unicode.IsSpace(m.value[m.row][m.col]) {
-			m.SetCursor(m.col - 1)
+			m.SetCursorColumn(m.col - 1)
 		} else {
 			if m.col > 0 {
 				// keep the previous space
-				m.SetCursor(m.col + 1)
+				m.SetCursorColumn(m.col + 1)
 			}
 			break
 		}
@@ -1124,10 +1113,10 @@ func (m *Model) deleteWordRight() {
 	}
 
 	oldCol := m.col
-	m.SetCursor(m.col + 1)
+	m.SetCursorColumn(m.col + 1)
 	for unicode.IsSpace(m.value[m.row][m.col]) {
 		// ignore series of whitespace after cursor
-		m.SetCursor(m.col + 1)
+		m.SetCursorColumn(m.col + 1)
 
 		if m.col >= len(m.value[m.row]) {
 			break
@@ -1136,7 +1125,7 @@ func (m *Model) deleteWordRight() {
 
 	for m.col < len(m.value[m.row]) {
 		if !unicode.IsSpace(m.value[m.row][m.col]) {
-			m.SetCursor(m.col + 1)
+			m.SetCursorColumn(m.col + 1)
 		} else {
 			break
 		}
@@ -1148,7 +1137,7 @@ func (m *Model) deleteWordRight() {
 		m.value[m.row] = append(m.value[m.row][:oldCol], m.value[m.row][m.col:]...)
 	}
 
-	m.SetCursor(oldCol)
+	m.SetCursorColumn(oldCol)
 }
 
 func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
@@ -1164,15 +1153,15 @@ func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
 			// ...and the next line is empty, then move to the next line and we're done
 			// This is a bit odd, but it's Vim behaviour
 			if len(m.value[m.row+1]) == 0 {
-				// Copied from CharacterRight
-				m.CursorStart()
+				// Copied from MoveCursorRightOneRune
+				m.MoveCursorToLineStart()
 				m.row++
 				return
 			}
 
 			// ...and the next line is not empty, prep to stop on the next word
 			m.row++
-			m.CursorStart()
+			m.MoveCursorToLineStart()
 			haveEncounteredWhitespace = true
 			continue
 		}
@@ -1190,7 +1179,7 @@ func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
 		}
 
 		// We don't want the cursor to move off the end of everything
-		m.CharacterRight(true)
+		m.MoveCursorRightOneRune(true)
 	}
 
 	/*
@@ -1200,7 +1189,7 @@ func (m *Model) doWordRight(fn func(charIdx int, pos int)) {
 				break
 			}
 			fn(charIdx, m.col)
-			m.SetCursor(m.col + 1)
+			m.SetCursorColumn(m.col + 1)
 			charIdx++
 		}
 
@@ -1223,13 +1212,13 @@ func (m *Model) repositionView() {
 // moveToBegin moves the cursor to the beginning of the input.
 func (m *Model) moveToBegin() {
 	m.row = 0
-	m.SetCursor(0)
+	m.SetCursorColumn(0)
 }
 
 // moveToEnd moves the cursor to the end of the input.
 func (m *Model) moveToEnd() {
 	m.row = len(m.value) - 1
-	m.SetCursor(len(m.value[m.row]))
+	m.SetCursorColumn(len(m.value[m.row]))
 }
 
 func (m Model) getPromptString(displayLine int) (prompt string) {
@@ -1299,7 +1288,7 @@ func (m Model) cursorLineNumber() int {
 		// into.
 		line += len(wrap(m.value[i], m.width))
 	}
-	line += m.LineInfo().RowOffset
+	line += m.GetLineInfo().RowOffset
 	return line
 }
 
