@@ -309,6 +309,14 @@ func (model *Model) Resize(width int, height int) {
 	model.area.SetHeight(height - 1)
 }
 
+func (model Model) GetWidth() int {
+	return model.width
+}
+
+func (model Model) GetHeight() int {
+	return model.height
+}
+
 func (model *Model) SetValue(str string) {
 	model.area.SetValue(str)
 }
