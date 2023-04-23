@@ -15,6 +15,42 @@ import (
 	rw "github.com/mattn/go-runewidth"
 )
 
+type CursorMovementDirection int
+
+const (
+	CursorMovementDirection_Left  CursorMovementDirection = -1
+	CursorMovementDirection_Right CursorMovementDirection = 1
+)
+
+// The position in the word that the cursor will stop at *IN THE DIRECTION OF CURSOR TRAVEL*
+// E.g.
+type WordwiseMovementStopPosition int
+
+const (
+	// These integers actually represent the index offset (relative to the direction of cursor travel)
+	// where we'll look for a word boundary
+	// If we're going right, "incident" = beginning of word and "terminus" = end of word
+	// If we're going left, "incident" = *end* of word, and "terminus" = beginning of word
+	// We used "incident" and "terminus" to avoid confusion with "start" and "end" when going left
+
+	// WordwiseMovementStopPosition_Incidence tells the cursor to stop as soon as hit a word (in direction of cursor travel)
+	WordwiseMovementStopPosition_Incidence WordwiseMovementStopPosition = -1
+
+	// WordwiseMovementStopPosition_Terminus tells the cursor to stop as soon as it would leave a word (in direction of cursor travel)
+	WordwiseMovementStopPosition_Terminus WordwiseMovementStopPosition = 1
+)
+
+// When moving the cursor by a given character, the position where the cursor will stop relative to the character
+type CharacterwiseMovementStopPosition int
+
+const (
+	// Stop on the character (corresponds to 'f' in Vim)
+	CharacterwiseMovementStopPosition_On = 0
+
+	// Stop just before the character (corresponds to 't' in Vim)
+	CharacterwiseMovementStopPosition_Before = 1
+)
+
 const (
 	minHeight        = 1
 	minWidth         = 2
@@ -432,26 +468,13 @@ func (m *Model) MoveCursorLeftOneRune() {
 	}
 }
 
-// MoveCursorToWordStartLeft moves the cursor one word to the left. Returns whether or not the
-// cursor blink should be reset. If input is masked, move input to the start
-// so as not to reveal word breaks in the masked input.
-func (m *Model) MoveCursorToWordStartLeft() {
-	m.doWordwiseMovement(false, false)
+func (m *Model) MoveCursorByWord(direction CursorMovementDirection, stopPosition WordwiseMovementStopPosition) {
+	m.doWordwiseMovement(direction, stopPosition)
 }
 
-func (m *Model) MoveCursorToWordEndLeft() {
-	m.doWordwiseMovement(false, true)
-}
+// Moves the cursor in the direction of travel to the specified character
+func (m *Model) MoveCursorByCharacter(direction CursorMovementDirection, char rune) {
 
-func (m *Model) MoveCursorToWordEndRight() {
-	m.doWordwiseMovement(true, false)
-}
-
-// MoveCursorToWordStartRight moves the cursor one word to the right. Returns whether or not the
-// cursor blink should be reset. If the input is masked, move input to the end
-// so as not to reveal word breaks in the masked input.
-func (m *Model) MoveCursorToWordStartRight() {
-	m.doWordwiseMovement(true, true)
 }
 
 func (m *Model) InsertLineAbove() {
@@ -694,7 +717,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			// almost definitely in insert mode
 			m.MoveCursorDown(false)
 		case key.Matches(msg, m.KeyMap.WordForward):
-			m.MoveCursorToWordStartRight()
+			m.MoveCursorByWord(CursorMovementDirection_Right, WordwiseMovementStopPosition_Incidence)
 		case key.Matches(msg, m.KeyMap.Paste):
 			return m, Paste
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
@@ -704,7 +727,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			// almost definitely in insert mode
 			m.MoveCursorUp(false)
 		case key.Matches(msg, m.KeyMap.WordBackward):
-			m.MoveCursorToWordStartLeft()
+			// Note that "End" here is actually the start of the word
+			m.MoveCursorByWord(CursorMovementDirection_Left, WordwiseMovementStopPosition_Terminus)
 		case key.Matches(msg, m.KeyMap.InputBegin):
 			m.moveToBegin()
 		case key.Matches(msg, m.KeyMap.InputEnd):
@@ -844,18 +868,7 @@ func Paste() tea.Msg {
 //	Private Helper Functions
 //
 // ====================================================================================================
-/*
-shouldEagerStop means that the algorithm will stop when it finds the first instance of a word (the first characters)
-in the direction of algorithm travel. When set, this means:
-- when moving right, the algorithm will leave the cursor at the start of the word
-- when moving left, the algorithm will leave the cursor at the end of the word
-
-!shouldEagerStop tells the algorithm to stop at the *last* instance of a word (the last characters) in the
-direction of algorithm travel. This means:
-- when moving right, the algorithm will leave the cursor at the end of the word
-- when moving left, the algorithm will leave the cursor at the start of the word
-*/
-func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
+func (m *Model) doWordwiseMovement(direction CursorMovementDirection, stopPosition WordwiseMovementStopPosition) {
 	// This function utilizes the insight that the textarea string can be thought of as a "tape" of words, joined by whitespace
 	// With this insight, we can handle both (left,right) and (word_start,word_end) by simply sliding along the tape in
 	// the appropriate direction looking for the sequence we want
@@ -866,23 +879,17 @@ func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 	}
 
 	// Factor applied to index calculations to account for the desired direction of cursor travel
-	directionMultiplier := 1
-	if !isMovingRight {
-		directionMultiplier = -1
-	}
+	directionMultiplier := int(direction)
 
-	// Factor applied to index calculations to account for eagerness, where eagerness means "look at the
-	// character BEFORE the cursor to figure out if you should stop" and non-eager means "look at the character
-	// AFTER the cursor to figure out if you should stop" (where "before" and "after" are measured by direction of
+	// Factor applied to index calculations to account for stopPosition, where "incidence" means "look at the
+	// character BEHIND the cursor to figure out if you should stop" and "terminus" means "look at the character
+	// AHEAD of the cursor to figure out if you should stop" (where "ahead" and "behind" are measured by direction of
 	// cursor travel)
-	eagerMultiplier := -1
-	if !shouldEagerStop {
-		eagerMultiplier = 1
-	}
+	stopPositionMultiplier := int(stopPosition)
 
 	// Figure out what the row index of each end of the tape is
 	limitRowIndex := len(m.value) - 1
-	if !isMovingRight {
+	if direction == CursorMovementDirection_Left {
 		limitRowIndex = 0
 	}
 
@@ -896,7 +903,7 @@ func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		// The proposed column might be off either end of the line, so let's first calculate the boundary beyond
 		// which we know that the proposed column is off the edge of the line
 		limitColIndex := len(m.value[m.row]) - 1
-		if !isMovingRight {
+		if direction == CursorMovementDirection_Left {
 			limitColIndex = 0
 		}
 
@@ -914,7 +921,7 @@ func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 			// We still have at least one more line, so let's use it (which means we're crossing a newline char which
 			// means we're crossing a word boundary)
 			m.row += directionMultiplier
-			if isMovingRight {
+			if direction == CursorMovementDirection_Right {
 				nextColIdx = 0
 			} else {
 				nextColIdx = len(m.value[m.row]) - 1
@@ -934,17 +941,17 @@ func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 		cursorChar := m.value[m.row][m.col]
 
 		// Grab a comparison column which must be whitespace to stop the algorithm
-		// The eager multiplier means that "eager" will require whitespace to be *behind* the cursor in the direction
-		// of algorithm travel (thereby making it eager), whereas non-eager will require whitespace to be *in front* of the cursor
+		// The stopPosition multiplier means that "incident" will require whitespace to be *behind* the cursor in the direction
+		// of algorithm travel, whereas "terminus" will require whitespace to be *ahead* of the cursor
 		// in the direction of algorithm travel
-		cursorAdjacentColIdx := m.col + eagerMultiplier*directionMultiplier
+		cursorAdjacentColIdx := m.col + stopPositionMultiplier*directionMultiplier
 
-		// Depending on eagerness, the adjacent col might actually be *behind* the cursor, meaning we need to use the opposite boundary
+		// Depending on stopPosition, the adjacent col might actually be *behind* the cursor, meaning we need to use the opposite boundary
 		// as the direction of algo travel along the "tape"
-		// This happens if we're moving right but we're eagerly stopping, OR if we're moving left and non-eagerly stopping
-		// NOTE: This is actually an XOR between moveRight and eagerStop
+		// This happens if we're moving right but we're stopping at word incidence, OR if we're moving left and stopping at word terminus
+		// NOTE: This is actually an XOR
 		var adjacentColLimitIndex int
-		if (isMovingRight && !shouldEagerStop) || (!isMovingRight && shouldEagerStop) {
+		if ((direction == CursorMovementDirection_Right) && (stopPosition == WordwiseMovementStopPosition_Terminus)) || ((direction == CursorMovementDirection_Left) && (stopPosition == WordwiseMovementStopPosition_Incidence)) {
 			// The adjacent col limit index will be the list's right limit
 			adjacentColLimitIndex = len(m.value[m.row]) - 1
 		} else {
@@ -953,7 +960,7 @@ func (m *Model) doWordwiseMovement(isMovingRight bool, shouldEagerStop bool) {
 
 		// Now grab a character that may or may not be whitespace
 		// If the col we're grabbing is off the end of the line, it's automatically a newline
-		remainingColsBeforeCursorAdjacentColIsOff := eagerMultiplier * directionMultiplier * (adjacentColLimitIndex - cursorAdjacentColIdx)
+		remainingColsBeforeCursorAdjacentColIsOff := stopPositionMultiplier * directionMultiplier * (adjacentColLimitIndex - cursorAdjacentColIdx)
 		var candidateWhitespaceChar rune
 		if remainingColsBeforeCursorAdjacentColIsOff < 0 {
 			candidateWhitespaceChar = '\n'
