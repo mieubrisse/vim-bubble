@@ -105,7 +105,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				model.mode = NormalMode
 				model.area.MoveCursorLeftOneRune()
 
-				model.saveHistory()
+				model.CheckpointHistory()
 
 				break
 			}
@@ -178,13 +178,13 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					model.area.DeleteBeforeCursor()
 					model.nGraphBuffer = ""
 					// TODO extract this into something better!
-					model.saveHistory()
+					model.CheckpointHistory()
 				case "c":
 					model.area.DeleteBeforeCursor()
 					model.mode = InsertMode
 					model.nGraphBuffer = ""
 					// TODO extract this into something better!
-					model.saveHistory()
+					model.CheckpointHistory()
 				default:
 					model.area.MoveCursorToLineStart()
 				}
@@ -194,7 +194,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					model.area.DeleteAfterCursor()
 					model.nGraphBuffer = ""
 					// TODO extract this into something better!
-					model.saveHistory()
+					model.CheckpointHistory()
 				case "c":
 					model.area.DeleteAfterCursor()
 					model.area.MoveCursorRightOneRune(false)
@@ -219,7 +219,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			case "D":
 				model.area.DeleteAfterCursor()
 				// TODO extract this into something better!
-				model.saveHistory()
+				model.CheckpointHistory()
 			case "C":
 				model.area.DeleteAfterCursor()
 				model.area.MoveCursorRightOneRune(false)
@@ -240,7 +240,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					model.nGraphBuffer = ""
 					model.area.DeleteLine()
 					// TODO extract this into something better!
-					model.saveHistory()
+					model.CheckpointHistory()
 				default:
 					model.nGraphBuffer = ""
 				}
@@ -280,7 +280,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				deletedRunes := model.area.DeleteOnCursor()
 				model.commaRegister = string(deletedRunes)
 				// TODO extract this into something better!
-				model.saveHistory()
+				model.CheckpointHistory()
 			case "p":
 				// TODO make this a better thing in the textarea class - it's a kind of hacky way to implement the "paste AFTER cursor location" logic of Vim
 				model.area.MoveCursorRightOneRune(false)
@@ -364,30 +364,32 @@ func (model Model) ReplaceLine(newContents string) Model {
 	return model
 }
 
+// Forces a checkpoint in the Vim buffer's history, for undo
+func (model *Model) CheckpointHistory() {
+	if model.area.GetValue() == model.undoHistory[len(model.undoHistory)-1] {
+		return
+	}
+
+	// If the user has rewound, then we discard things they've rewound past
+	preservedHistory := model.undoHistory[:model.historyPointer+1]
+	newHistory := append(
+		preservedHistory,
+		model.area.GetValue(),
+	)
+
+	// Now discard down to the appropriate number of history steps
+	subsliceStartIdx := max(0, len(newHistory)-numHistoryStepsToKeep)
+	model.undoHistory = newHistory[subsliceStartIdx:]
+
+	// We reset the steps-rewound because we've now thrown away the steps the user rewound past
+	model.historyPointer = len(model.undoHistory) - 1
+}
+
 // ====================================================================================================
 //
 //	Private Helper Functions
 //
 // ====================================================================================================
-func (model *Model) saveHistory() {
-	// TODO don't save a history step if nothing new was written
-	if model.area.GetValue() != model.undoHistory[len(model.undoHistory)-1] {
-		// If the user has rewound, then we discard things they've rewound past
-		preservedHistory := model.undoHistory[:model.historyPointer+1]
-		newHistory := append(
-			preservedHistory,
-			model.area.GetValue(),
-		)
-
-		// Now discard down to the appropriate number of history steps
-		subsliceStartIdx := max(0, len(newHistory)-numHistoryStepsToKeep)
-		model.undoHistory = newHistory[subsliceStartIdx:]
-
-		// We reset the steps-rewound because we've now thrown away the steps the user rewound past
-		model.historyPointer = len(model.undoHistory) - 1
-	}
-}
-
 func (model Model) renderStatusBar() string {
 	if !model.isFocused {
 		return strings.Repeat(" ", model.width)
