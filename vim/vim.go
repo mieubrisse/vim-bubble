@@ -94,7 +94,7 @@ func (model Model) Init() tea.Cmd {
 	return nil
 }
 
-func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+func (model *Model) Update(msg tea.Msg) tea.Cmd {
 	var resultCmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -109,10 +109,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 				break
 			}
-
-			var cmd tea.Cmd
-			model.area, cmd = model.area.Update(msg)
-			resultCmds = append(resultCmds, cmd)
+			resultCmds = append(resultCmds, model.area.Update(msg))
 		case NormalMode:
 			// TODO clean this whole thing up to make the processing of motion commands way better!
 
@@ -296,7 +293,7 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			// TODO 't', 'f', ';', and ','
 		}
 	}
-	return model, tea.Batch(resultCmds...)
+	return tea.Batch(resultCmds...)
 }
 
 func (model Model) View() string {
@@ -349,9 +346,8 @@ func (model *Model) GetValue() string {
 	return model.area.GetValue()
 }
 
-func (model Model) SetMode(mode Mode) Model {
+func (model *Model) SetMode(mode Mode) {
 	model.mode = mode
-	return model
 }
 
 func (model Model) GetMode() Mode {
@@ -364,10 +360,9 @@ func (model Model) GetCursorRow() int {
 
 // TODO this is a nasty hack, that I'm exposing purely to allow for tab completion in the app that needs this
 // TODO the ideal would be some standard way to programmatically manipulate the Vim buffer
-func (model Model) ReplaceLine(newContents string) Model {
+func (model *Model) ReplaceLine(newContents string) {
 	model.area.ClearLine()
 	model.area.InsertString(newContents)
-	return model
 }
 
 // Forces a checkpoint in the Vim buffer's history, for undo

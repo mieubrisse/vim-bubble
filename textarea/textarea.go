@@ -63,6 +63,15 @@ const (
 	lineNumberColorHex = "#5d5d5d"
 )
 
+// Paste is a tea.Cmd for pasting from the clipboard into the text input.
+func Paste() tea.Msg {
+	str, err := clipboard.ReadAll()
+	if err != nil {
+		return pasteErrMsg{err}
+	}
+	return pasteMsg(str)
+}
+
 // Internal messages for clipboard operations.
 type pasteMsg string
 type pasteErrMsg struct{ error }
@@ -633,10 +642,10 @@ func (m *Model) SetHeight(h int) {
 }
 
 // Update is the Bubble Tea update loop.
-func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	if !m.focus {
 		m.Cursor.Blur()
-		return m, nil
+		return nil
 	}
 
 	// Used to determine if the cursor should blink.
@@ -700,7 +709,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.deleteWordRight()
 		case key.Matches(msg, m.KeyMap.InsertNewline):
 			if len(m.value) >= maxHeight {
-				return m, nil
+				return nil
 			}
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			m.splitLine(m.row, m.col)
@@ -719,7 +728,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.KeyMap.WordForward):
 			m.MoveCursorByWord(CursorMovementDirection_Right, WordwiseMovementStopPosition_Incidence)
 		case key.Matches(msg, m.KeyMap.Paste):
-			return m, Paste
+			return Paste
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
 			m.MoveCursorLeftOneRune()
 		case key.Matches(msg, m.KeyMap.LinePrevious):
@@ -759,7 +768,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	m.repositionView()
 
-	return m, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
 
 // View renders the text area in its current state.
@@ -852,15 +861,6 @@ func (m Model) View() string {
 
 	m.viewport.SetContent(s.String())
 	return m.style.Base.Render(m.viewport.View())
-}
-
-// Paste is a command for pasting from the clipboard into the text input.
-func Paste() tea.Msg {
-	str, err := clipboard.ReadAll()
-	if err != nil {
-		return pasteErrMsg{err}
-	}
-	return pasteMsg(str)
 }
 
 // ====================================================================================================

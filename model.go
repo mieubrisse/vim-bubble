@@ -24,8 +24,7 @@ func (model appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.vim.Resize(msg.Width, msg.Height)
 	}
 
-	var cmd tea.Cmd
-	model.vim, cmd = model.vim.Update(msg)
+	cmd := model.vim.Update(msg)
 	return model, cmd
 }
 
