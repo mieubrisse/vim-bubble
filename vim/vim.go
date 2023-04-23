@@ -157,18 +157,18 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			case "b", "B":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.MoveCursorToWordStartLeft()
+				model.area.MoveCursorByWord(textarea.CursorMovementDirection_Left, textarea.WordwiseMovementStopPosition_Terminus)
 			case "w", "W":
 				// TODO handle movement commands with numbers
 				model.nGraphBuffer = ""
-				model.area.MoveCursorToWordStartRight()
+				model.area.MoveCursorByWord(textarea.CursorMovementDirection_Right, textarea.WordwiseMovementStopPosition_Incidence)
 			case "e", "E":
 				// TODO handle repeats
 				switch model.nGraphBuffer {
 				case "":
-					model.area.MoveCursorToWordEndRight()
+					model.area.MoveCursorByWord(textarea.CursorMovementDirection_Right, textarea.WordwiseMovementStopPosition_Terminus)
 				case "g":
-					model.area.MoveCursorToWordEndLeft()
+					model.area.MoveCursorByWord(textarea.CursorMovementDirection_Left, textarea.WordwiseMovementStopPosition_Incidence)
 				}
 				// I thiiink this is right??
 				model.nGraphBuffer = ""
@@ -213,6 +213,12 @@ func (model Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				default:
 					// TODO is this right?
 					model.nGraphBuffer = ""
+				}
+			case "f":
+				switch model.nGraphBuffer {
+				case "":
+					model.nGraphBuffer = msg.String()
+				case "f":
 				}
 			case "G":
 				model.area.MoveCursorToLastRow()

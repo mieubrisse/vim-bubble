@@ -896,17 +896,18 @@ func (m *Model) doWordwiseMovement(direction CursorMovementDirection, stopPositi
 	// Our column might be off the right edge of the line; ensure we account for that
 	sanitizedColIdx := min(m.col, len(m.value[m.row])-1)
 
+	// At some point the proposed new column might be off either end of the line
+	// Therefore, let's first calculate the boundary beyond which we know
+	// that the proposed column is off the edge of the line
+	limitColIndex := len(m.value[m.row]) - 1
+	if direction == CursorMovementDirection_Left {
+		limitColIndex = 0
+	}
+
 	// To start the algo off, shove the cursor column one character in the direction of travel
 	// This prevents this being a noop if you're already at a word start/end
 	nextColIdx := sanitizedColIdx + directionMultiplier
 	for {
-		// The proposed column might be off either end of the line, so let's first calculate the boundary beyond
-		// which we know that the proposed column is off the edge of the line
-		limitColIndex := len(m.value[m.row]) - 1
-		if direction == CursorMovementDirection_Left {
-			limitColIndex = 0
-		}
-
 		// Now, check if the proposed column would indeed put us off the line
 		remainingColsBeforeLimit := directionMultiplier * (limitColIndex - nextColIdx)
 		if remainingColsBeforeLimit < 0 {
@@ -974,6 +975,34 @@ func (m *Model) doWordwiseMovement(direction CursorMovementDirection, stopPositi
 		}
 
 		// We're not done, so prep for next iteration
+	}
+}
+
+func (m *Model) doCharacterwiseMovement(targetChar rune, direction CursorMovementDirection, stopPosition CharacterwiseMovementStopPosition) {
+	directionMultiplier := int(direction)
+
+	stopPositionOffset := int(stopPosition)
+
+	// To start the algo off, shove the proposed column one character in the direction of travel
+	// This prevents this being a noop if you're already on the character you're looking for
+	newColIdx := m.col + directionMultiplier
+
+	// Based on the stop position, we need to examine different cells (either on the cursor, or ahead of it)
+	examinationColIdx := newColIdx + stopPositionOffset
+
+	for {
+		// If our examintion column is out-of-bounds, abort; we haven't found anything
+		if examinationColIdx < 0 || examinationColIdx >= len(m.value[m.row]) {
+			return
+		}
+
+		if m.value[m.row][examinationColIdx] == targetChar {
+			m.SetCursorColumn(newColIdx)
+			return
+		}
+
+		newColIdx += directionMultiplier
+		examinationColIdx += directionMultiplier
 	}
 }
 

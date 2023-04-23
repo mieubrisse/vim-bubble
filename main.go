@@ -10,6 +10,7 @@ import (
 func main() {
 	area := vim.New()
 	area.Focus()
+	area.SetValue("Four score, and seven years ago our founding fathers rocked out")
 
 	model := appModel{
 		vim: area,
