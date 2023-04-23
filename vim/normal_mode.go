@@ -3,6 +3,7 @@ package vim
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mieubrisse/vim-bubble/textarea"
+	"golang.org/x/text/runes"
 	"strings"
 )
 
@@ -13,6 +14,28 @@ type characterReducers struct {
 }
 
 func (model Model) handleNormalModeKeypress(msg tea.KeyMsg) Model {
+	// 2. process the buffer
+	// 3. potentially execute an action
+
+
+	// 1. add to the buffer
+	sanitizedRunes :=
+	model.nGraphBuffer += msg.Runes
+
+	// 2. process the buffer
+	if strings.HasSuffix(model.nGraphBuffer, "G") {
+		// "G" is a little special - unlike the other motion commands, adding a number in front of it won't just redo
+		// the same command N times
+
+	}
+
+	// Rest of the motion commands take N in front of them
+
+
+
+
+
+
 	// This is the only weird one, where repetition doesn't work
 	if msg.String() == "G" {
 
@@ -220,7 +243,16 @@ func (model Model) handleNormalModeKeypress(msg tea.KeyMsg) Model {
 	return model
 }
 
-func (model Model) getReducer() func() {
+func (model Model) parseCommandStr(str string) Model {
+	// Strip off numbers first
+	numbersEndIdxInclusive := 1
+	for i := 0; i <  {
+
+	}
+}
+
+// Parse a command string that's guaranteed not to have leading numbers
+func (model Model) parseNumberlessCommandStr() func(model Model) Model {
 
 }
 
